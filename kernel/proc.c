@@ -90,6 +90,19 @@ myproc(void) {
   return p;
 }
 
+// Return the current struct thread *, or zero if none.
+struct thread*
+mythread(void) {
+  push_off();
+  struct cpu *c = mycpu();
+  struct proc *p = c->proc;
+
+  //TODO
+
+  pop_off();
+  return p;
+}
+
 int
 allocpid() {
   int pid;
@@ -703,3 +716,23 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
     //todo after 2.4 is done
   }
 //task 1.5
+
+int kthread_create(void(*start_func)(), void *stack){
+
+}
+
+//task3
+int kthread_id(){
+  return mythread()->id;
+}
+
+//task3
+void kthread_exit(){
+
+}
+
+//task3
+int kthread_join(int thread_id){
+
+}
+//task3

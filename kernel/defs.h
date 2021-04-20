@@ -111,6 +111,11 @@ uint            sigprocmask(uint sigmask);
 int             sigaction (int signum, const struct sigaction *act, struct sigaction *oldact);
 void            sigret(void);
 //task 1.3+1.4+1.5
+int             kthread_create(void(*start_func)(), void *stack);       //task3
+int             kthread_id();       //task3
+void            kthread_exit();         //task3
+int             kthread_join(int);      //task3
+
 // swtch.S
 void            swtch(struct context*, struct context*);
 

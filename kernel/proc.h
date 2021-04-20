@@ -1,3 +1,5 @@
+#define NTHREAD 8
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -81,6 +83,10 @@ struct trapframe {
 };
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+struct thread {
+  struct spinlock lock;
+  int id;
+};
 
 // Per-process state
 struct proc {
