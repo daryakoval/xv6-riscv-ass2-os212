@@ -111,6 +111,9 @@ struct proc {
   void* signal_handlers[32];
   struct trapframe* user_trap_frame_backup;
   //task 1.1
+  //task 2.3
+  int frozen                   //if proc is frozen
+  //task 2.3
 
 };
 

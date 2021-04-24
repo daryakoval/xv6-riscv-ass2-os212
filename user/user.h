@@ -1,7 +1,10 @@
 struct stat;
 struct rtcdate;
 //task 1.4
-struct sigaction;
+struct sigaction{
+    void (*sa_handler)(int);
+    uint sigmask;
+};
 //task 1.4
 
 // system calls

@@ -56,7 +56,7 @@ procinit(void)
       //task 1.2
       //lock ?
       for(int i=0;i<32;i++)
-        p->signal_handlers[i]=SIG_DFL;
+        p->signal_handlers[i]=(void*)SIG_DFL;
       //task 1.2
   }
 }
@@ -248,6 +248,8 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  p->frozen=0;
+  
 
   release(&p->lock);
 }
@@ -316,6 +318,12 @@ fork(void)
   for(int i=0;i<32;i++)
     np->signal_handlers[i]=p->signal_handlers[i]; 
   //task 1.2
+  //2.3
+  //init frozem to 0
+  np->frozen=0;
+
+  //2.3
+
 
   release(&np->lock);
 
@@ -587,19 +595,30 @@ wakeup(void *chan)
 // Kill the process with the given pid.
 // The victim won't exit until it tries to return
 // to user space (see usertrap() in trap.c).
+//task 2.1
 int
-kill(int pid)
+kill(int pid, int signum)
 {
+  if(signum<0 || signum>31)
+    return -1;
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->pid == pid){
+      p->pendding_signals |= (1 << signum);// or bitwise to turn on new signal in pedding signals
+      //task 2.3
+      if(signum==SIGKILL){// if sigkill killed on and wake it up if its asleep
       p->killed = 1;
-      if(p->state == SLEEPING){
-        // Wake process from sleep().
-        p->state = RUNNABLE;
+        if(p->state == SLEEPING){
+        //Wake process from sleep().
+          p->state = RUNNABLE;
       }
+      }
+      else if(signum==SIGSTOP){
+        p->frozen=1;
+      }
+      //task 2.3
       release(&p->lock);
       return 0;
     }
@@ -684,7 +703,8 @@ sigprocmask(uint sigmask){
 //task 1.4
 int 
 sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
-  if(signum==SIGKILL || signum==SIGSTOP) // return error if its sigstop or sigkill
+  if(signum==SIGKILL || signum==SIGSTOP || signum<0 || signum>31  || act->sigmask<=0) 
+  // return error if its sigstop or sigkill or invalid  or sigmask is negative
     return -1;
   struct proc *p=myproc();
   acquire(&p->lock);
