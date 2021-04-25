@@ -102,7 +102,7 @@ exec(char *path, char **argv)
   // arguments to user main(argc, argv)
   // argc is returned via the system call return
   // value, which goes in a0.
-  p->trapframe->a1 = sp;
+  //p->trapframe->a1 = sp;
   t->trapframe->a1 = sp;
 
   // Save program name for debugging.
@@ -115,8 +115,8 @@ exec(char *path, char **argv)
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
   p->sz = sz;
-  p->trapframe->epc = elf.entry;  // initial program counter = main
-  p->trapframe->sp = sp; // initial stack pointer
+  //p->trapframe->epc = elf.entry;  // initial program counter = main
+  //p->trapframe->sp = sp; // initial stack pointer
   
   t->trapframe->epc = elf.entry;  // initial program counter = main
   t->trapframe->sp = sp; // initial stack pointer

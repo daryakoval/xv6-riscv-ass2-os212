@@ -319,8 +319,6 @@ userinit(void)
   t = allocproc();
   p = t->tproc;
   initproc = p;
-  printf("init p pid %d\n", p->pid);
-  printf("init t tid %d\n", t->id);
   
   // allocate one user page and copy init's instructions
   // and data into it.
@@ -380,10 +378,7 @@ fork(void)
   if((nt = allocproc()) == 0){
     return -1;
   }
-  np = t->tproc;
-
-  printf("got to fork 1\n");
-
+  np = nt->tproc;
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
@@ -393,7 +388,7 @@ fork(void)
   np->sz = p->sz;
 
   // copy saved user registers.
-  //*(np->trapframe) = *(p->trapframe);
+  *(np->trapframe) = *(p->trapframe);
   *(nt->trapframe) = *(t->trapframe);
 
   // Cause fork to return 0 in the child.
@@ -488,7 +483,7 @@ exit(int status)
   struct thread *t;
 
   for(t = p->threads; t < &p->threads[NTHREAD]; t++){
-    if(t!= mythread() && t->state != UNUSED && t->state != ZOMBIE){
+    if(t->state != UNUSED && t->state != ZOMBIE){
       t->killed = 1;
       t->state = ZOMBIE;
       t->xstate = status;
@@ -646,10 +641,8 @@ void
 forkret(void)
 {
   static int first = 1;
-  printf("hi got here1\n");
   // Still holding p->lock from scheduler.
   release(&myproc()->lock);
-  printf("hi got here2\n");
 
   if (first) {
     // File system initialization must be run in the context of a
@@ -658,7 +651,6 @@ forkret(void)
     first = 0;
     fsinit(ROOTDEV);
   }
-  printf("hi got here3\n");
   usertrapret();
 }
 
@@ -738,7 +730,7 @@ kill(int pid)
       }
 
       for(t = p->threads; t < &p->threads[NTHREAD]; t++){
-        //t->killed = 1; TODO?
+        t->killed = 1; //TODO?
         if(t->state == SLEEPING){
           t->state = RUNNABLE;
         }
