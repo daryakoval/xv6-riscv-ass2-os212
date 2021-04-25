@@ -29,3 +29,7 @@
 //task 1.5
 #define SYS_sigret 24
 //task 1.5
+#define SYS_kthread_create 25  //TASK3
+#define SYS_kthread_id 26 //task3
+#define SYS_kthread_exit 27        //task3
+#define SYS_kthread_join 28         //task3

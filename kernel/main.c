@@ -17,10 +17,12 @@ main()
     printf("xv6 kernel is booting\n");
     printf("\n");
     kinit();         // physical page allocator
+    printf("got here kinit!\n");
     kvminit();       // create kernel page table
     kvminithart();   // turn on paging
     procinit();      // process table
     trapinit();      // trap vectors
+    printf("got trapinit!\n");
     trapinithart();  // install kernel trap vector
     plicinit();      // set up interrupt controller
     plicinithart();  // ask PLIC for device interrupts
@@ -28,7 +30,9 @@ main()
     iinit();         // inode cache
     fileinit();      // file table
     virtio_disk_init(); // emulated hard disk
+    printf("got diskinit!\n");
     userinit();      // first user process
+    printf("finish init!\n");
     __sync_synchronize();
     started = 1;
   } else {
@@ -40,6 +44,6 @@ main()
     trapinithart();   // install kernel trap vector
     plicinithart();   // ask PLIC for device interrupts
   }
-
+  printf("start sched:!\n");
   scheduler();        
 }

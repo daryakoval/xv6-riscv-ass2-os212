@@ -23,6 +23,7 @@ struct context {
 // Per-CPU state.
 struct cpu {
   struct proc *proc;          // The process running on this cpu, or null.
+  struct thread *thread;      // The thread running on this cpu, or null.
   struct context context;     // swtch() here to enter scheduler().
   int noff;                   // Depth of push_off() nesting.
   int intena;                 // Were interrupts enabled before push_off()?
@@ -84,8 +85,17 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 struct thread {
-  struct spinlock lock;
-  int id;
+  //struct spinlock lock;     
+  int id;                     //thread id
+  enum procstate state;        // Thread state
+  struct proc *tproc;           //Thread's process
+  // these are private to the process, so p->lock need not be held.
+  uint64 kstack;               // Virtual address of kernel stack
+  struct trapframe *trapframe; // data page for trampoline.S
+  struct context context;      // swtch() here to run process
+  void *chan;                  // If non-zero, sleeping on chan
+  int killed;                  // If non-zero, have been killed
+  int xstate;
 };
 
 // Per-process state
@@ -117,7 +127,7 @@ struct proc {
   void* signal_handlers[32];
   struct trapframe* user_trap_frame_backup;
   //task 1.1
-
+  struct thread threads[NTHREAD];    //threads of the proccess
 };
 
 

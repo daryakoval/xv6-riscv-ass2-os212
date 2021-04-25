@@ -15,6 +15,7 @@ int
 main(void)
 {
   int pid, wpid;
+  //printf("hi got here\n");
 
   if(open("console", O_RDWR) < 0){
     mknod("console", CONSOLE, 0);
@@ -26,6 +27,7 @@ main(void)
   for(;;){
     printf("init: starting sh\n");
     pid = fork();
+    printf("init: after fork\n");
     if(pid < 0){
       printf("init: fork failed\n");
       exit(1);
