@@ -18,9 +18,32 @@ exec(char *path, char **argv)
   struct elfhdr elf;
   struct inode *ip;
   struct proghdr ph;
+  struct thread *ot;
   pagetable_t pagetable = 0, oldpagetable;
   struct thread *t = mythread();
   struct proc *p = t->tproc;
+
+  acquire(&p->lock);
+  for(ot = p->threads; ot < &p->threads[NTHREAD]; ot++){
+    if(ot->state != UNUSED && t != ot) {
+      ot->killed = 1;
+      if(ot->state == SLEEPING){
+        ot->state = RUNNABLE;
+      }
+    }
+  }
+  release(&p->lock);
+
+  while(1){
+    int live_threads = 0;
+    for(ot = p->threads; ot < &p->threads[NTHREAD]; ot++){
+      if(ot->state != UNUSED && t != ot && ot->state != ZOMBIE) {
+        live_threads = 1;
+      }
+    }
+    if(!live_threads) break;
+  }
+  
 
   begin_op();
 

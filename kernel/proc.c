@@ -34,13 +34,18 @@ struct spinlock wait_lock;
 void
 proc_mapstacks(pagetable_t kpgtbl) {
   struct proc *p;
-  
+  struct thread *t;
+
   for(p = proc; p < &proc[NPROC]; p++) {
-    char *pa = kalloc();
-    if(pa == 0)
-      panic("kalloc");
-    uint64 va = KSTACK((int) (p - proc));
-    kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+    for(t = p->threads; t < &p->threads[NTHREAD]; t++){
+      char *pa = kalloc();
+      if(pa == 0)
+        panic("kalloc");
+      int t_indx = (int) (t - p->threads);
+      int p_indx = (int) (p - proc);
+      uint64 va = KSTACK((8*(p_indx)+t_indx+1));
+      kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+    }
   }
 }
 
@@ -56,9 +61,12 @@ procinit(void)
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
-      t = p->threads;
-      t->kstack = KSTACK((int) (p - proc));
+      for(t = p->threads; t < &p->threads[NTHREAD]; t++){
+        int t_indx = (int) (t - p->threads);
+        int p_indx = (int) (p - proc);
 
+        t->kstack = KSTACK((8*(p_indx)+t_indx+1));
+      }
       //was:
       //p->kstack = KSTACK((int) (p - proc));
   }
@@ -132,7 +140,6 @@ alloctid() {
 static void
 freethread(struct thread *t)
 {
-  t->trapframe = 0;
   t->id = 0;
   t->tproc = 0;
   t->chan = 0;
@@ -146,8 +153,11 @@ static struct thread*
 allocthread(struct proc *p)
 {
   struct thread *t;
+  struct trapframe *tr = p->trapframe;
 
   for(t = p->threads; t < &p->threads[NTHREAD]; t++){
+    t->trapframe = tr;
+    tr--;
     if(t->state == UNUSED) {
       goto found;
     }
@@ -160,9 +170,7 @@ found:
   t->state = USED;
   t->tproc = p;
 
-  // Allocate a trapframe page.
-  t->trapframe = p->trapframe;
-
+  //t->trapframe = p->trapframe;
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
@@ -234,7 +242,8 @@ freeproc(struct proc *p)
 {
   struct thread *t;
   for(t = p->threads; t < &p->threads[NTHREAD]; t++){
-    if(t->state != RUNNING) {
+    if(t->state != UNUSED && t->state != RUNNING) {
+      t->trapframe = 0;
       freethread(t);
     }
   }
@@ -348,7 +357,6 @@ growproc(int n)
 {
   uint sz;
   struct proc *p = myproc();
-  acquire(&p->lock);    //task3
   sz = p->sz;
   if(n > 0){
     if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
@@ -357,6 +365,7 @@ growproc(int n)
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
+  acquire(&p->lock);    //task3
   p->sz = sz;
   release(&p->lock);    //task3
   return 0;
@@ -476,10 +485,6 @@ exit(int status)
   
   acquire(&p->lock);
 
-  p->xstate = status;
-  p->state = ZOMBIE;
-  p->killed = 1;
-
   struct thread *t;
 
   for(t = p->threads; t < &p->threads[NTHREAD]; t++){
@@ -487,8 +492,14 @@ exit(int status)
       t->killed = 1;
       t->state = ZOMBIE;
       t->xstate = status;
+      if(t->state == SLEEPING){
+        t->state = RUNNABLE;
+      }
     }
   }
+  p->xstate = status;
+  p->state = ZOMBIE;
+  p->killed = 1;
 
   release(&wait_lock);
 
@@ -571,7 +582,6 @@ scheduler(void)
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
         for(t = p->threads; t < &p->threads[NTHREAD]; t++) {
-          //acquire(&t->lock);
           if(t->state == RUNNABLE) {
             // Switch to chosen process.  It is the process's job
             // to release its lock and then reacquire it
@@ -587,7 +597,6 @@ scheduler(void)
             c->thread = 0;
             c->proc = 0;
           }
-          //release(&t->lock);
         }
       }
       release(&p->lock);
@@ -869,13 +878,56 @@ void kthread_exit(int status){
     exit(status);
   }
 
-  //TODO: wakeup?? 
+  wakeup(myt);
   sched();
   panic("thread zombie exit");
 }
 
 //task3
-int kthread_join(int thread_id, uint64 status){
-  return 1;
+int kthread_join(int thread_id, uint64 addr){
+  struct thread *nt, *found_t;
+  int found;
+  struct thread *t = mythread();
+  struct proc *p = t->tproc;
+
+  acquire(&wait_lock);
+
+  for(;;){
+    // Scan through table looking for exited children.
+    found = 0;
+    for(nt = p->threads; nt < &p->threads[NTHREAD]; nt++){
+      if(nt->id == thread_id){
+        // make sure the child isn't still in exit() or swtch().
+        acquire(&p->lock);
+
+        found = 1;
+        found_t = nt;
+        if(nt->state == ZOMBIE){
+          // Found one.
+          
+          if(addr != 0 && copyout(p->pagetable, addr, (char *)&nt->xstate,
+                                  sizeof(nt->xstate)) < 0) {
+            release(&p->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          freethread(nt);
+          release(&p->lock);
+          release(&wait_lock);
+          return 0;
+        }
+        release(&p->lock);
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!found || t->killed){
+      release(&wait_lock);
+      return -1;
+    }
+    
+    // Wait for a child to exit.
+    sleep(found_t, &wait_lock);  //DOC: wait-sleep
+  }
 }
 //task3
