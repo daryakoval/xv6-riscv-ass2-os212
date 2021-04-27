@@ -47,3 +47,7 @@ entry("sigaction");
 #task 1.5
 entry("sigret");
 #task 1.5
+entry("kthread_create");
+entry("kthread_id");
+entry("kthread_exit");
+entry("kthread_join");

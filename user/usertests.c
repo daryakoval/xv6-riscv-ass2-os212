@@ -2709,8 +2709,9 @@ countfree()
       printf("read() failed in countfree()\n");
       exit(1);
     }
-    if(cc == 0)
+    if(cc == 0){
       break;
+    }
     n += 1;
   }
 
