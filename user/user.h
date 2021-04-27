@@ -3,6 +3,7 @@ struct rtcdate;
 //task 1.4
 struct sigaction;
 //task 1.4
+struct counting_semaphore;
 
 // system calls
 int fork(void);
@@ -58,3 +59,11 @@ void free(void*);
 int atoi(const char*);
 int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
+int bsem_alloc();
+void bsem_free(int);
+void bsem_down(int);
+void bsem_up(int);
+int csem_alloc(struct counting_semaphore*, int);
+void csem_free(struct counting_semaphore*);
+void csem_down(struct counting_semaphore*);
+void csem_up(struct counting_semaphore*);
