@@ -43,7 +43,7 @@ proc_mapstacks(pagetable_t kpgtbl) {
         panic("kalloc");
       int t_indx = (int) (t - p->threads);
       int p_indx = (int) (p - proc);
-      uint64 va = KSTACK((8*(p_indx)+t_indx+1));
+      uint64 va = KSTACK((NTHREAD*(p_indx)+t_indx));
       kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
     }
   }
@@ -65,7 +65,7 @@ procinit(void)
         int t_indx = (int) (t - p->threads);
         int p_indx = (int) (p - proc);
 
-        t->kstack = KSTACK((8*(p_indx)+t_indx+1));
+        t->kstack = KSTACK((NTHREAD*(p_indx)+t_indx));
       }
       //was:
       //p->kstack = KSTACK((int) (p - proc));
@@ -153,11 +153,8 @@ static struct thread*
 allocthread(struct proc *p)
 {
   struct thread *t;
-  struct trapframe *tr = p->trapframe;
 
   for(t = p->threads; t < &p->threads[NTHREAD]; t++){
-    t->trapframe = tr;
-    tr--;
     if(t->state == UNUSED) {
       goto found;
     }
@@ -210,6 +207,14 @@ found:
     return 0;
   }
 
+  struct trapframe *tr = p->trapframe;
+  struct thread *t;
+  
+  for(t = p->threads; t < &p->threads[NTHREAD]; t++){
+    t->trapframe = tr;
+    tr--;
+  }
+
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -224,7 +229,7 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;*/
 
-  struct thread *t = allocthread(p);
+  t = allocthread(p);
   if(t == 0){
     freeproc(p);
     release(&p->lock);
@@ -850,7 +855,26 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
 //task 1.5
 
 int kthread_create(uint64 start_func, uint64 stack){
-  return 1;
+  struct proc *p = myproc();
+  struct thread *t = mythread();
+  struct thread *nt;
+
+  acquire(&p->lock);
+  
+  nt = allocthread(p);
+  if(nt == 0){
+    release(&p->lock);
+    return 0;
+  }
+
+  *(nt->trapframe) = *(t->trapframe);
+  nt->trapframe->epc = start_func;  // initial program counter = start_func
+  nt->trapframe->sp = stack+MAX_STACK_SIZE; // initial stack pointer
+  nt->state = RUNNABLE;
+
+  release(&p->lock);
+  return nt->id;
+
 }
 
 //task3
@@ -887,8 +911,7 @@ void kthread_exit(int status){
 int kthread_join(int thread_id, uint64 addr){
   struct thread *nt, *found_t;
   int found;
-  struct thread *t = mythread();
-  struct proc *p = t->tproc;
+  struct proc *p = mythread()->tproc;
 
   acquire(&wait_lock);
 
@@ -921,7 +944,7 @@ int kthread_join(int thread_id, uint64 addr){
     }
 
     // No point waiting if we don't have any children.
-    if(!found || t->killed){
+    if(!found || mythread()->killed){
       release(&wait_lock);
       return -1;
     }

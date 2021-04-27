@@ -8,22 +8,33 @@ int
 main(int argc, char **argv)
 {
     fprintf(2, "main function\n");
-    int pid = fork();
-    sbrk(5);
-    if(pid != 0){
+    //int pid = fork();
+    /*if(pid != 0){
         int status;
         wait(&status);
         fprintf(2, "Child %d finished with status %d\n", pid, status);
-        sbrk(7);
     }else{
         sleep(1);
         fprintf(2, "Child running\n");
-        sbrk(1);
-        sbrk(7);
-        exit(5);
-    }
+        exit(3);
+    }*/
+    int id = kthread_id();
+    fprintf(2, "id of thread %d\n", id);
+   /* int pid = fork();
+    if(pid != 0){
+        sleep(3);
+        int status1;
+        kthread_join(4, &status1);
+        fprintf(2, "Child %d finished with status %d\n", id, status1);
+    }else{
+        id = kthread_id();
+        fprintf(2, "child thread id %d\n", id);
+        kthread_exit(6);
+    }*/
+    kthread_exit(6);
+    fprintf(2, "should not get here\n");
 
-    //new test: 
+    /*//new test: 
     fprintf(2, "New test starting..\n");
 
     int cpid[3];
@@ -43,7 +54,8 @@ main(int argc, char **argv)
         if(cpid[i] == 0){
             exit(i);
         }
-    }
+    }*/
 
-    exit(0);
+    //exit(0);
+    return 0;
 }

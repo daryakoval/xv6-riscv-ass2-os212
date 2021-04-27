@@ -1,4 +1,5 @@
 #define NTHREAD 8
+#define MAX_STACK_SIZE 400
 
 // Saved registers for kernel context switches.
 struct context {
