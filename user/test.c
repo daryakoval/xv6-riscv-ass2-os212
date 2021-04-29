@@ -2,60 +2,32 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 #include "kernel/syscall.h"
+#include "kernel/param.h"
+
+
+void test_thread(){
+    printf("Thread is now running\n");
+    kthread_exit(0);
+}
 
 //MY TEST
 int
 main(int argc, char **argv)
 {
     fprintf(2, "main function\n");
-    //int pid = fork();
-    /*if(pid != 0){
-        int status;
-        wait(&status);
-        fprintf(2, "Child %d finished with status %d\n", pid, status);
-    }else{
-        sleep(1);
-        fprintf(2, "Child running\n");
-        exit(3);
-    }*/
-    int id = kthread_id();
-    fprintf(2, "id of thread %d\n", id);
-   /* int pid = fork();
-    if(pid != 0){
-        sleep(3);
-        int status1;
-        kthread_join(4, &status1);
-        fprintf(2, "Child %d finished with status %d\n", id, status1);
-    }else{
-        id = kthread_id();
-        fprintf(2, "child thread id %d\n", id);
-        kthread_exit(6);
-    }*/
-    kthread_exit(6);
-    fprintf(2, "should not get here\n");
+    int tid;
+    int status;
+    void* stack = malloc(STACK_SIZE);
+    tid = kthread_id();
+    printf("before create: tid: %d creating thread\n", tid);
+    tid = kthread_create(test_thread, stack);
+    printf("after create before join new tid : %d \n", tid);
+    kthread_join(tid,&status);
+    printf("after join\n");
 
-    /*//new test: 
-    fprintf(2, "New test starting..\n");
+    tid = kthread_id();
+    free(stack);
+    printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
 
-    int cpid[3];
-    int i;
-    for(i=0; i<3; i++){
-        cpid[i] = fork();
-    }
-    for(i=0; i<3; i++){
-        if(cpid[i] != 0){
-            int status;
-            wait(&status);
-            fprintf(2, "Child %d finished with status %d\n", cpid[i], status);
-        }
-    }
-    fprintf(2, "Done\n");
-    for(i=0; i<3; i++){
-        if(cpid[i] == 0){
-            exit(i);
-        }
-    }*/
-
-    //exit(0);
-    return 0;
+    exit(0);
 }

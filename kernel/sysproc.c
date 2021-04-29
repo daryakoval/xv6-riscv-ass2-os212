@@ -167,65 +167,33 @@ uint64 sys_kthread_join(void){
 }
 
 uint64 sys_bsem_alloc(void){
-  return bsem_alloc;
+  return bsem_alloc();
 }
 
 uint64 sys_bsem_free(void){
-  int status;
+  int bid;
 
-  if(argint(0, &status) < 0)
+  if(argint(0, &bid) < 0)
     return -1;
-  bsem_free(status);
+  bsem_free(bid);
   return 0;
 }
 
 uint64 sys_bsem_down(void){
-  int status;
+  int bid;
 
-  if(argint(0, &status) < 0)
+  if(argint(0, &bid) < 0)
     return -1;
-  bsem_down(status);
+  bsem_down(bid);
   return 0;
 }
 
 uint64 sys_bsem_up(void){
-  int status;
+  int bid;
 
-  if(argint(0, &status) < 0)
+  if(argint(0, &bid) < 0)
     return -1;
-  bsem_up(status);
+  bsem_up(bid);
 
-  return 0;
-}
-uint64 sys_csem_alloc(void){
-  uint64 sem;
-  int initial_value;
-  if(argaddr(0, &sem) < 0)
-    return -1;
-  if(argint(1, &initial_value) < 0)
-    return -1;
-  return csem_alloc(sem, initial_value);
-}
-uint64 sys_csem_free(void){
-  uint64 sem;
-  if(argaddr(0, &sem) < 0)
-    return -1;
-  csem_free(sem);
-  return 0;
-}
-
-uint64 sys_csem_down(void){
-  uint64 sem;
-  if(argaddr(0, &sem) < 0)
-    return -1;
-  csem_down(sem);
-  return 0;
-}
-
-uint64 sys_csem_up(void){
-  uint64 sem;
-  if(argaddr(0, &sem) < 0)
-    return -1;
-  csem_up(sem);
   return 0;
 }

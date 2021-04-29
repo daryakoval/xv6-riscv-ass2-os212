@@ -18,3 +18,6 @@
 #define SIGSTOP      17
 #define SIGCONT      19
 //task 1.1
+#define NTHREAD 8
+#define MAX_STACK_SIZE 4000
+#define STACK_SIZE 4000

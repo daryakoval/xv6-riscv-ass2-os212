@@ -159,6 +159,7 @@ allocthread(struct proc *p)
       goto found;
     }
   }
+  printf("release allocthread1\n");
   release(&p->lock);
   return 0;
 
@@ -191,6 +192,7 @@ allocproc(void)
     if(p->state == UNUSED) {
       goto found;
     } else {
+      printf("release allocproc1\n");
       release(&p->lock);
     }
   }
@@ -203,6 +205,7 @@ found:
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
+    printf("release allocproc2\n");
     release(&p->lock);
     return 0;
   }
@@ -211,16 +214,24 @@ found:
   struct thread *t;
   
   for(t = p->threads; t < &p->threads[NTHREAD]; t++){
+    printf("t->trapframe = %p\n", tr);
     t->trapframe = tr;
-    tr--;
+    tr++;
+    printf("t->trapframe->a7 = %p\n", t->trapframe->a7);
   }
+printf("sizeoftrapframe: %d\n", sizeof(struct trapframe));
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
     freeproc(p);
+    printf("release allocproc3\n");
     release(&p->lock);
     return 0;
+  }
+
+  for(t = p->threads; t < &p->threads[NTHREAD]; t++){
+    printf("t->trapframe->a7 = %p\n", t->trapframe->a7);
   }
 
   /*// Set up new context to start executing at forkret,
@@ -232,6 +243,7 @@ found:
   t = allocthread(p);
   if(t == 0){
     freeproc(p);
+    printf("release allocproc4\n");
     release(&p->lock);
     return 0;
   }
@@ -352,6 +364,7 @@ userinit(void)
   p->state = RUNNABLE;
   t->state = RUNNABLE;
 
+  printf("release userinit\n");
   release(&p->lock);
 }
 
@@ -372,6 +385,7 @@ growproc(int n)
   }
   acquire(&p->lock);    //task3
   p->sz = sz;
+  printf("release growproc\n");
   release(&p->lock);    //task3
   return 0;
 }
@@ -585,7 +599,7 @@ scheduler(void)
 
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
+      if(p->state != UNUSED) {
         for(t = p->threads; t < &p->threads[NTHREAD]; t++) {
           if(t->state == RUNNABLE) {
             // Switch to chosen process.  It is the process's job
@@ -646,6 +660,7 @@ yield(void)
   acquire(&p->lock);
   t->state = RUNNABLE;
   sched();
+  printf("release yeild\n");
   release(&p->lock);
 }
 
@@ -697,6 +712,7 @@ sleep(void *chan, struct spinlock *lk)
   t->chan = 0;
 
   // Reacquire original lock.
+  printf("release sleep\n");
   release(&p->lock);
   acquire(lk);
 }
@@ -720,6 +736,7 @@ wakeup(void *chan)
           t->state = RUNNABLE;
         }
       }
+      //printf("release wakeup\n");
       release(&p->lock);
     }
   }
@@ -749,10 +766,11 @@ kill(int pid)
           t->state = RUNNABLE;
         }
       }
-
+      printf("release kill1\n");
       release(&p->lock);
       return 0;
     }
+    printf("release kill2\n");
     release(&p->lock);
   }
   return -1;
@@ -859,19 +877,23 @@ int kthread_create(uint64 start_func, uint64 stack){
   struct thread *t = mythread();
   struct thread *nt;
 
+   printf("starting create: procees p %d, thread %d \n", p->pid, t->id);
+
   acquire(&p->lock);
   
   nt = allocthread(p);
   if(nt == 0){
+    printf("release create1\n");
     release(&p->lock);
     return 0;
   }
 
-  *(nt->trapframe) = *(t->trapframe);
-  nt->trapframe->epc = start_func;  // initial program counter = start_func
-  nt->trapframe->sp = stack+MAX_STACK_SIZE; // initial stack pointer
+  //*(nt->trapframe) = *(t->trapframe);
+  nt->trapframe->epc = (uint64)start_func;  // initial program counter = start_func
+  nt->trapframe->sp = stack+MAX_STACK_SIZE-16; // initial stack pointer
   nt->state = RUNNABLE;
 
+  printf("release create2\n");
   release(&p->lock);
   return nt->id;
 
@@ -898,6 +920,7 @@ void kthread_exit(int status){
     }
   }
   if(!running_threads){
+    printf("release kexit\n");
     release(&p->lock);
     exit(status);
   }
@@ -914,6 +937,7 @@ int kthread_join(int thread_id, uint64 addr){
   struct proc *p = mythread()->tproc;
 
   acquire(&wait_lock);
+  printf("starting join\n");
 
   for(;;){
     // Scan through table looking for exited children.
@@ -921,25 +945,24 @@ int kthread_join(int thread_id, uint64 addr){
     for(nt = p->threads; nt < &p->threads[NTHREAD]; nt++){
       if(nt->id == thread_id){
         // make sure the child isn't still in exit() or swtch().
-        acquire(&p->lock);
 
         found = 1;
         found_t = nt;
         if(nt->state == ZOMBIE){
           // Found one.
-          
+          //acquire(&p->lock);
+
           if(addr != 0 && copyout(p->pagetable, addr, (char *)&nt->xstate,
                                   sizeof(nt->xstate)) < 0) {
-            release(&p->lock);
+            //release(&p->lock);
             release(&wait_lock);
             return -1;
           }
           freethread(nt);
-          release(&p->lock);
+          //release(&p->lock);
           release(&wait_lock);
           return 0;
         }
-        release(&p->lock);
       }
     }
 
@@ -950,6 +973,7 @@ int kthread_join(int thread_id, uint64 addr){
     }
     
     // Wait for a child to exit.
+    printf("gooing to sleep in join\n");
     sleep(found_t, &wait_lock);  //DOC: wait-sleep
   }
 }

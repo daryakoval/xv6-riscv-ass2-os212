@@ -120,10 +120,7 @@ int             bsem_alloc();
 void            bsem_free(int);
 void            bsem_down(int);
 void            bsem_up(int);
-int             csem_alloc(uint64, int);
-void            csem_free(uint64);
-void            csem_down(uint64);
-void            csem_up(uint64);
+
 
 // swtch.S
 void            swtch(struct context*, struct context*);

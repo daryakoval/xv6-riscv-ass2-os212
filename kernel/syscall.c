@@ -123,10 +123,6 @@ extern uint64 sys_bsem_alloc(void);
 extern uint64 sys_bsem_free(void);
 extern uint64 sys_bsem_down(void);
 extern uint64 sys_bsem_up(void);
-extern uint64 sys_csem_alloc(void);
-extern uint64 sys_csem_free(void);
-extern uint64 sys_csem_down(void);
-extern uint64 sys_csem_up(void);
 
 
 static uint64 (*syscalls[])(void) = {
@@ -168,10 +164,6 @@ static uint64 (*syscalls[])(void) = {
 [SYS_bsem_free] sys_bsem_free,
 [SYS_bsem_down] sys_bsem_down,
 [SYS_bsem_up] sys_bsem_up,
-[SYS_csem_alloc] sys_csem_alloc,
-[SYS_csem_free] sys_csem_free,
-[SYS_csem_down] sys_csem_down,
-[SYS_csem_up] sys_csem_up,
 };
 
 void

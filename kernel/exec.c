@@ -32,6 +32,7 @@ exec(char *path, char **argv)
       }
     }
   }
+  printf("release exec\n");
   release(&p->lock);
 
   while(1){
