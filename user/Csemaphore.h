@@ -1,4 +1,9 @@
-struct counting_semaphore;
+
+struct counting_semaphore {
+    int value;
+    int s1;
+    int s2;
+};
 
 
 int csem_alloc(struct counting_semaphore*, int);

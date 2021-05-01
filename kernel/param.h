@@ -21,3 +21,4 @@
 #define NTHREAD 8
 #define MAX_STACK_SIZE 4000
 #define STACK_SIZE 4000
+#define MAX_BSEM 128

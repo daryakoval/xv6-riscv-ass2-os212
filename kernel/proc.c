@@ -56,6 +56,7 @@ procinit(void)
   struct proc *p;
   struct thread *t;
 
+  bsem_init();
   initlock(&pid_lock, "nextpid");
   initlock(&tid_lock, "nexttid");
   initlock(&wait_lock, "wait_lock");
@@ -159,7 +160,7 @@ allocthread(struct proc *p)
       goto found;
     }
   }
-  printf("release allocthread1\n");
+  //printf("release allocthread1\n");
   release(&p->lock);
   return 0;
 
@@ -192,7 +193,7 @@ allocproc(void)
     if(p->state == UNUSED) {
       goto found;
     } else {
-      printf("release allocproc1\n");
+      //printf("release allocproc1\n");
       release(&p->lock);
     }
   }
@@ -205,7 +206,7 @@ found:
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
-    printf("release allocproc2\n");
+    //printf("release allocproc2\n");
     release(&p->lock);
     return 0;
   }
@@ -214,24 +215,17 @@ found:
   struct thread *t;
   
   for(t = p->threads; t < &p->threads[NTHREAD]; t++){
-    printf("t->trapframe = %p\n", tr);
     t->trapframe = tr;
     tr++;
-    printf("t->trapframe->a7 = %p\n", t->trapframe->a7);
   }
-printf("sizeoftrapframe: %d\n", sizeof(struct trapframe));
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
     freeproc(p);
-    printf("release allocproc3\n");
+    //printf("release allocproc3\n");
     release(&p->lock);
     return 0;
-  }
-
-  for(t = p->threads; t < &p->threads[NTHREAD]; t++){
-    printf("t->trapframe->a7 = %p\n", t->trapframe->a7);
   }
 
   /*// Set up new context to start executing at forkret,
@@ -243,7 +237,7 @@ printf("sizeoftrapframe: %d\n", sizeof(struct trapframe));
   t = allocthread(p);
   if(t == 0){
     freeproc(p);
-    printf("release allocproc4\n");
+    //printf("release allocproc4\n");
     release(&p->lock);
     return 0;
   }
@@ -364,7 +358,7 @@ userinit(void)
   p->state = RUNNABLE;
   t->state = RUNNABLE;
 
-  printf("release userinit\n");
+  //printf("release userinit\n");
   release(&p->lock);
 }
 
@@ -385,7 +379,7 @@ growproc(int n)
   }
   acquire(&p->lock);    //task3
   p->sz = sz;
-  printf("release growproc\n");
+  //printf("release growproc\n");
   release(&p->lock);    //task3
   return 0;
 }
@@ -660,7 +654,7 @@ yield(void)
   acquire(&p->lock);
   t->state = RUNNABLE;
   sched();
-  printf("release yeild\n");
+  //printf("release yeild\n");
   release(&p->lock);
 }
 
@@ -712,7 +706,7 @@ sleep(void *chan, struct spinlock *lk)
   t->chan = 0;
 
   // Reacquire original lock.
-  printf("release sleep\n");
+  //printf("release sleep\n");
   release(&p->lock);
   acquire(lk);
 }
@@ -742,6 +736,32 @@ wakeup(void *chan)
   }
 }
 
+// Wake up all processes sleeping on chan.
+// Must be called without any p->lock.
+int
+wakeup_one(void *chan)
+{
+  struct proc *p;
+  struct thread *t;
+  int found = 0;
+
+  for(p = proc; p < &proc[NPROC] && !found; p++) {
+    if(p != myproc()){
+      acquire(&p->lock);
+      for(t = p->threads; t < &p->threads[NTHREAD] && !found; t++){
+        if(t->state == SLEEPING && t->chan == chan) {
+          t->state = RUNNABLE;
+          found = 1;
+          break;
+        }
+      }
+      //printf("release wakeup\n");
+      release(&p->lock);
+    }
+  }
+  return found;
+}
+
 // Kill the process with the given pid.
 // The victim won't exit until it tries to return
 // to user space (see usertrap() in trap.c).
@@ -766,11 +786,11 @@ kill(int pid)
           t->state = RUNNABLE;
         }
       }
-      printf("release kill1\n");
+      //printf("release kill1\n");
       release(&p->lock);
       return 0;
     }
-    printf("release kill2\n");
+    //printf("release kill2\n");
     release(&p->lock);
   }
   return -1;
@@ -877,13 +897,13 @@ int kthread_create(uint64 start_func, uint64 stack){
   struct thread *t = mythread();
   struct thread *nt;
 
-   printf("starting create: procees p %d, thread %d \n", p->pid, t->id);
+  printf("starting create: procees p %d, thread %d \n", p->pid, t->id);
 
   acquire(&p->lock);
   
   nt = allocthread(p);
   if(nt == 0){
-    printf("release create1\n");
+    //printf("release create1\n");
     release(&p->lock);
     return 0;
   }
@@ -893,7 +913,7 @@ int kthread_create(uint64 start_func, uint64 stack){
   nt->trapframe->sp = stack+MAX_STACK_SIZE-16; // initial stack pointer
   nt->state = RUNNABLE;
 
-  printf("release create2\n");
+  //printf("release create2\n");
   release(&p->lock);
   return nt->id;
 
