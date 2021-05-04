@@ -1,9 +1,7 @@
 #include "defs.h"
 #include "param.h"
 
-struct bsem
-{
-    //struct spinlock b_lock;
+struct bsem{    
     int state;      //state 0 == UNUSED, state 1 == USED
     int bid;
     int unlocked;        //unlocked 0 == LOCKED, unlocked 1 == UNLOCkED
@@ -47,9 +45,11 @@ int bsem_alloc(){
 
 void bsem_free(int bid){
     struct bsem *b = &bsems[bid];
+    acquire(&bsem_lock);
     b->unlocked = 0;
     b->sleeping_threads = 0;
     b->state = 0;        //unused
+    release(&bsem_lock);
 }
 
 void bsem_down(int bid){

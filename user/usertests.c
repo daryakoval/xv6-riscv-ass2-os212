@@ -8,7 +8,6 @@
 #include "kernel/memlayout.h"
 #include "kernel/riscv.h"
 
-#include "Csemaphore.h"
 
 //
 // Tests xv6 system calls.  usertests without arguments runs them all
@@ -65,38 +64,6 @@ copyin(char *s)
     close(fds[0]);
     close(fds[1]);
   }
-}
-
-void Csem_test(char *c){
-	struct counting_semaphore csem;
-    int retval;
-    int pid;
-    
-    
-    retval = csem_alloc(&csem,1);
-    if(retval==-1)
-    {
-		printf("failed csem alloc");
-		exit(-1);
-	}
-
-    csem_down(&csem);
-    printf("1. Parent downing semaphore\n");
-    if((pid = fork()) == 0){
-        printf("2. Child downing semaphore\n");
-        csem_down(&csem);
-        printf("4. Child woke up\n");
-        exit(0);
-    }
-    sleep(5);
-    printf("3. Let the child wait on the semaphore...\n");
-    sleep(10);
-    csem_up(&csem);
-
-    csem_free(&csem);
-    wait(&pid);
-
-    printf("Finished bsem test, make sure that the order of the prints is alright. Meaning (1...2...3...4)\n");
 }
 
 // what if you pass ridiculous pointers to system calls

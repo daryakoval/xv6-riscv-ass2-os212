@@ -699,7 +699,7 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   t->chan = chan;
   t->state = SLEEPING;
-
+  //printf("thread going to sleep: thread %d, chan %d \n", t->id, chan);
   sched();
 
   // Tidy up.
@@ -720,19 +720,21 @@ wakeup(void *chan)
   struct thread *t;
 
   for(p = proc; p < &proc[NPROC]; p++) {
-    if(p != myproc()){
+    //if(p != myproc()){
       acquire(&p->lock);
-      if(p->state == SLEEPING && p->chan == chan) {
-        p->state = RUNNABLE;
-      }
+      // if(p->state == SLEEPING && p->chan == chan) {
+      //   p->state = RUNNABLE;
+      // }
       for(t = p->threads; t < &p->threads[NTHREAD]; t++){
-        if(t->state == SLEEPING && t->chan == chan) {
+        if(t != mythread() && t->state == SLEEPING && t->chan == chan) {
           t->state = RUNNABLE;
+          //printf("found thread to wakeup:thread %d, chan %d \n", t->id, chan);
+
         }
       }
       //printf("release wakeup\n");
       release(&p->lock);
-    }
+    //}
   }
 }
 
@@ -897,7 +899,7 @@ int kthread_create(uint64 start_func, uint64 stack){
   struct thread *t = mythread();
   struct thread *nt;
 
-  printf("starting create: procees p %d, thread %d \n", p->pid, t->id);
+  //printf("starting create: procees p %d, thread %d \n", p->pid, t->id);
 
   acquire(&p->lock);
   
@@ -908,7 +910,7 @@ int kthread_create(uint64 start_func, uint64 stack){
     return 0;
   }
 
-  //*(nt->trapframe) = *(t->trapframe);
+  *(nt->trapframe) = *(t->trapframe);
   nt->trapframe->epc = (uint64)start_func;  // initial program counter = start_func
   nt->trapframe->sp = stack+MAX_STACK_SIZE-16; // initial stack pointer
   nt->state = RUNNABLE;
@@ -931,6 +933,7 @@ void kthread_exit(int status){
   struct thread *t;
   int running_threads = 0;
   acquire(&p->lock);
+  //printf("starting thread exit: procees p %d, thread %d \n", p->pid, myt->id);
 
   myt->state = ZOMBIE;
   myt->xstate = status;
@@ -940,12 +943,19 @@ void kthread_exit(int status){
     }
   }
   if(!running_threads){
-    printf("release kexit\n");
+    //printf("release kexit\n");
     release(&p->lock);
     exit(status);
   }
+  release(&p->lock);
 
+  acquire(&wait_lock);
+  //printf("wakeup thread exit: procees p %d, thread %d, chan %d \n", p->pid, myt->id, myt);
   wakeup(myt);
+  release(&wait_lock);
+
+  acquire(&p->lock);
+  //printf("going back to sced, finish kthread_exit, tid: %d \n", myt->id);
   sched();
   panic("thread zombie exit");
 }
@@ -957,7 +967,7 @@ int kthread_join(int thread_id, uint64 addr){
   struct proc *p = mythread()->tproc;
 
   acquire(&wait_lock);
-  printf("starting join\n");
+  //printf("starting join\n");
 
   for(;;){
     // Scan through table looking for exited children.
@@ -966,6 +976,7 @@ int kthread_join(int thread_id, uint64 addr){
       if(nt->id == thread_id){
         // make sure the child isn't still in exit() or swtch().
 
+        acquire(&p->lock);
         found = 1;
         found_t = nt;
         if(nt->state == ZOMBIE){
@@ -974,15 +985,16 @@ int kthread_join(int thread_id, uint64 addr){
 
           if(addr != 0 && copyout(p->pagetable, addr, (char *)&nt->xstate,
                                   sizeof(nt->xstate)) < 0) {
-            //release(&p->lock);
+            release(&p->lock);
             release(&wait_lock);
             return -1;
           }
           freethread(nt);
-          //release(&p->lock);
+          release(&p->lock);
           release(&wait_lock);
           return 0;
         }
+        release(&p->lock);
       }
     }
 
@@ -993,7 +1005,7 @@ int kthread_join(int thread_id, uint64 addr){
     }
     
     // Wait for a child to exit.
-    printf("gooing to sleep in join\n");
+    //printf("gooing to sleep in join: chan %d\n", found_t);
     sleep(found_t, &wait_lock);  //DOC: wait-sleep
   }
 }

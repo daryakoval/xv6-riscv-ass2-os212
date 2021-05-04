@@ -11,29 +11,29 @@ void test_thread(){
     kthread_exit(0);
 }
 
-/*//MY TEST
+//MY TEST
 int
-main(int argc, char **argv)
+mytest()
 {
     fprintf(2, "main function\n");
     int tid;
+    int did;
     int status;
     void* stack = malloc(STACK_SIZE);
-    tid = kthread_id();
-    printf("before create: tid: %d creating thread\n", tid);
+    did = kthread_id();
+    printf("before create: thread num: %d creating new thread\n", did);
     tid = kthread_create(test_thread, stack);
-    printf("after create before join new tid : %d \n", tid);
+    printf("after create before join, new tid : %d \n", tid);
     kthread_join(tid,&status);
     printf("after join\n");
 
-    tid = kthread_id();
     free(stack);
-    printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
+    printf("Finished testing threads, main thread id: %d, %d\n", did,status);
 
     exit(0);
-}*/
+}
 
-/*void bsem_test(){
+void bsem_test_tamir(){
     int zero_bsem  = bsem_alloc();
     int one_bsem   = bsem_alloc();
 
@@ -60,9 +60,9 @@ main(int argc, char **argv)
     bsem_free(one_bsem);
     bsem_free(zero_bsem);
     exit(0);
-}*/
+}
 
-/*void bsem_test(){
+void bsem_test(){
     int pid;
     int bid = bsem_alloc();
     bsem_down(bid);
@@ -82,9 +82,9 @@ main(int argc, char **argv)
     wait(&pid);
 
     printf("Finished bsem test, make sure that the order of the prints is alright. Meaning (1...2...3...4)\n");
-}*/
+}
 
-void bsem_test(){
+void bsem_test_me(){
     int pid1;
     int pid2;
     int bid = bsem_alloc();
@@ -126,7 +126,7 @@ void bsem_test(){
     printf("Finished bsem test, make sure that the order of the prints is alright. \n");
 }
 
-/*void Csem_test(){
+void Csem_test(){
 	struct counting_semaphore csem;
     int retval;
     int pid;
@@ -156,12 +156,16 @@ void bsem_test(){
     wait(&pid);
 
     printf("Finished bsem test, make sure that the order of the prints is alright. Meaning (1...2...3...4)\n");
-}*/
+}
 
 int
 main(int argc, char **argv)
 {   
-    //bsem_test();
-    Csem_test();
+    bsem_test();
+    bsem_test();
+    //bsem_test_me();
+    //bsem_test_tamir();
+    //Csem_test();
+    //mytest();
     exit(0);
 }

@@ -1,4 +1,5 @@
 #include "Csemaphore.h"
+#include "kernel/types.h"
 #include "user.h"
 
 
