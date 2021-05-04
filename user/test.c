@@ -7,8 +7,13 @@
 
 
 void test_thread(){
-    printf("Thread is now running\n");
-    kthread_exit(0);
+    printf("first Thread is now running\n");
+    kthread_exit(1);
+}
+
+void test_thread2(){
+    printf("second Thread is now running\n");
+    kthread_exit(2);
 }
 
 //MY TEST
@@ -25,12 +30,34 @@ mytest()
     tid = kthread_create(test_thread, stack);
     printf("after create before join, new tid : %d \n", tid);
     kthread_join(tid,&status);
-    printf("after join\n");
 
     free(stack);
     printf("Finished testing threads, main thread id: %d, %d\n", did,status);
 
     exit(0);
+}
+
+void
+thread_test()
+{
+    fprintf(2, "main function\n");
+    int tid[2];
+    int status1;
+    int status2;
+    void* stack1 = malloc(STACK_SIZE);
+    void* stack2 = malloc(STACK_SIZE);
+    tid[0] = kthread_create(test_thread, stack1);
+    tid[1] = kthread_create(test_thread2, stack2);
+    printf("after create before join, new tid : %d \n", tid[0]);
+    printf("after create before join, new tid : %d \n", tid[1]);
+    kthread_join(tid[0],&status1);
+    kthread_join(tid[1],&status2);
+
+    free(stack1);
+    free(stack2);
+    printf("Finished testing threads, thread id: %d, status: %d\n", tid[0],status1);
+    printf("Finished testing threads, thread id: %d, status: %d\n", tid[1],status2);
+    kthread_exit(3);
 }
 
 void bsem_test_tamir(){
@@ -161,11 +188,13 @@ void Csem_test(){
 int
 main(int argc, char **argv)
 {   
-    bsem_test();
-    bsem_test();
+    //bsem_test();
+    //bsem_test();
     //bsem_test_me();
     //bsem_test_tamir();
     //Csem_test();
     //mytest();
+    thread_test();
+    printf("got here : bad");
     exit(0);
 }

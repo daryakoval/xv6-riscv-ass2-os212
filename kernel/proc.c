@@ -41,9 +41,7 @@ proc_mapstacks(pagetable_t kpgtbl) {
       char *pa = kalloc();
       if(pa == 0)
         panic("kalloc");
-      int t_indx = (int) (t - p->threads);
-      int p_indx = (int) (p - proc);
-      uint64 va = KSTACK((NTHREAD*(p_indx)+t_indx));
+      uint64 va = KSTACK((NTHREAD*(p - proc)+(t - p->threads)));
       kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
     }
   }
@@ -63,10 +61,7 @@ procinit(void)
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       for(t = p->threads; t < &p->threads[NTHREAD]; t++){
-        int t_indx = (int) (t - p->threads);
-        int p_indx = (int) (p - proc);
-
-        t->kstack = KSTACK((NTHREAD*(p_indx)+t_indx));
+        t->kstack = KSTACK((NTHREAD*(p - proc)+(t - p->threads)));
       }
       //was:
       //p->kstack = KSTACK((int) (p - proc));
@@ -736,32 +731,6 @@ wakeup(void *chan)
       release(&p->lock);
     //}
   }
-}
-
-// Wake up all processes sleeping on chan.
-// Must be called without any p->lock.
-int
-wakeup_one(void *chan)
-{
-  struct proc *p;
-  struct thread *t;
-  int found = 0;
-
-  for(p = proc; p < &proc[NPROC] && !found; p++) {
-    if(p != myproc()){
-      acquire(&p->lock);
-      for(t = p->threads; t < &p->threads[NTHREAD] && !found; t++){
-        if(t->state == SLEEPING && t->chan == chan) {
-          t->state = RUNNABLE;
-          found = 1;
-          break;
-        }
-      }
-      //printf("release wakeup\n");
-      release(&p->lock);
-    }
-  }
-  return found;
 }
 
 // Kill the process with the given pid.

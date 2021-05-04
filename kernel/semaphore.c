@@ -5,7 +5,6 @@ struct bsem{
     int state;      //state 0 == UNUSED, state 1 == USED
     int bid;
     int unlocked;        //unlocked 0 == LOCKED, unlocked 1 == UNLOCkED
-    int sleeping_threads;
 };
 
 struct bsem bsems[MAX_BSEM];
@@ -19,11 +18,9 @@ void bsem_init(){           //called from proc.c at init
 
     for(i = 0; i < MAX_BSEM; i++){
         struct bsem *b = &bsems[i];
-        //initlock(&b->b_lock, "b_lock");
         b->bid = i;
         b->unlocked = 0;
         b->state = 0;
-        b->sleeping_threads = 0;
     }
 }
 
@@ -44,34 +41,29 @@ int bsem_alloc(){
 }
 
 void bsem_free(int bid){
-    struct bsem *b = &bsems[bid];
     acquire(&bsem_lock);
+    struct bsem *b = &bsems[bid];
     b->unlocked = 0;
-    b->sleeping_threads = 0;
     b->state = 0;        //unused
     release(&bsem_lock);
 }
 
 void bsem_down(int bid){
+    acquire(&bsem_lock);
     struct bsem *b;
     b = &bsems[bid];
-    acquire(&bsem_lock);
-    if(!b->unlocked){
-        b->sleeping_threads++;
+    while(!b->unlocked){
         sleep(b, &bsem_lock);
-        b->sleeping_threads--;
     }
-    else b->unlocked--;
+    b->unlocked=0;
     release(&bsem_lock);
 }
 
 void bsem_up(int bid){
+    acquire(&bsem_lock);
     struct bsem *b;
     b = &bsems[bid];
-    acquire(&bsem_lock);
-    if(b->sleeping_threads){
-        wakeup_one(b);
-    }
-    else b->unlocked++;
+    b->unlocked=1;
+    wakeup(b);
     release(&bsem_lock);
 }
