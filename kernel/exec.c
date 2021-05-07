@@ -18,8 +18,33 @@ exec(char *path, char **argv)
   struct elfhdr elf;
   struct inode *ip;
   struct proghdr ph;
+  struct thread *ot;
   pagetable_t pagetable = 0, oldpagetable;
-  struct proc *p = myproc();
+  struct thread *t = mythread();
+  struct proc *p = t->tproc;
+
+  acquire(&p->lock);
+  for(ot = p->threads; ot < &p->threads[NTHREAD]; ot++){
+    if(ot->state != UNUSED && t != ot) {
+      ot->killed = 1;
+      if(ot->state == SLEEPING){
+        ot->state = RUNNABLE;
+      }
+    }
+  }
+  //printf("release exec\n");
+  release(&p->lock);
+
+  while(1){
+    int live_threads = 0;
+    for(ot = p->threads; ot < &p->threads[NTHREAD]; ot++){
+      if(ot->state != UNUSED && t != ot && ot->state != ZOMBIE) {
+        live_threads = 1;
+      }
+    }
+    if(!live_threads) break;
+  }
+  
 
   begin_op();
 
@@ -61,7 +86,8 @@ exec(char *path, char **argv)
   end_op();
   ip = 0;
 
-  p = myproc();
+  t = mythread();
+  p = t->tproc;
   uint64 oldsz = p->sz;
 
   // Allocate two pages at the next page boundary.
@@ -100,7 +126,8 @@ exec(char *path, char **argv)
   // arguments to user main(argc, argv)
   // argc is returned via the system call return
   // value, which goes in a0.
-  p->trapframe->a1 = sp;
+  //p->trapframe->a1 = sp;
+  t->trapframe->a1 = sp;
 
   // Save program name for debugging.
   for(last=s=path; *s; s++)
@@ -112,19 +139,12 @@ exec(char *path, char **argv)
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
   p->sz = sz;
-  p->trapframe->epc = elf.entry;  // initial program counter = main
-  p->trapframe->sp = sp; // initial stack pointer
-
-
-
-  //task 1.2
-  for(int i=0; i< 32; i++){
-    uint mask=1<<i;
-    if(mask!=SIG_DFL && mask!= SIG_IGN)
-      p->pendding_signals=( p->pendding_signals & ~mask) |(SIG_DFL<<i);
-  }
+  //p->trapframe->epc = elf.entry;  // initial program counter = main
+  //p->trapframe->sp = sp; // initial stack pointer
   
-  //task 1.2
+  t->trapframe->epc = elf.entry;  // initial program counter = main
+  t->trapframe->sp = sp; // initial stack pointer
+
   proc_freepagetable(oldpagetable, oldsz);
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)

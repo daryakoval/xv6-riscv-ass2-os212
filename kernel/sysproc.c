@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "semaphore.c"
 
 uint64
 sys_exit(void)
@@ -129,4 +130,70 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64 sys_kthread_create(void){
+  uint64 start_func;
+  uint64 stack;
+
+  if(argaddr(0, &start_func) < 0)
+    return -1;
+  if(argaddr(1, &stack) < 0)
+    return -1;
+  return kthread_create(start_func,stack);
+}
+
+uint64 sys_kthread_id(void){
+  return kthread_id();
+}
+
+uint64 sys_kthread_exit(void){
+  int status;
+
+  if(argint(0, &status) < 0)
+    return -1;
+  kthread_exit(status);
+  return 0;
+}
+
+uint64 sys_kthread_join(void){
+  int id;
+  uint64 status;
+  if(argint(0, &id) < 0)
+    return -1;
+  if(argaddr(1, &status) < 0)
+    return -1;
+  return kthread_join(id, status);
+}
+
+uint64 sys_bsem_alloc(void){
+  return bsem_alloc();
+}
+
+uint64 sys_bsem_free(void){
+  int bid;
+
+  if(argint(0, &bid) < 0)
+    return -1;
+  bsem_free(bid);
+  return 0;
+}
+
+uint64 sys_bsem_down(void){
+  int bid;
+
+  if(argint(0, &bid) < 0)
+    return -1;
+  bsem_down(bid);
+  return 0;
+}
+
+uint64 sys_bsem_up(void){
+  int bid;
+
+  if(argint(0, &bid) < 0)
+    return -1;
+  bsem_up(bid);
+
+  return 0;
 }

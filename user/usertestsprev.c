@@ -9,11 +9,6 @@
 #include "kernel/riscv.h"
 
 
-#include "kernel/spinlock.h"  // NEW INCLUDE FOR ASS2
-#include "Csemaphore.h"   // NEW INCLUDE FOR ASS 2
-#include "kernel/proc.h"         // NEW INCLUDE FOR ASS 2, has all the signal definitions and sigaction definition.  Alternatively, copy the relevant things into user.h and include only it, and then no need to include spinlock.h .
-
-
 //
 // Tests xv6 system calls.  usertests without arguments runs them all
 // and usertests <name> runs <name> test. The test runner creates for
@@ -23,165 +18,9 @@
 // prints "OK".
 //
 
-#define SIGKILL 9
 #define BUFSZ  ((MAXOPBLOCKS+2)*BSIZE)
 
 char buf[BUFSZ];
-
-
-int wait_sig = 0;
-
-void test_handler(int signum){
-    wait_sig = 1;
-    printf("Received sigtest\n");
-}
-
-void test_thread(){
-    printf("Thread is now running\n");
-    kthread_exit(0);
-}
-
-/*void signal_test(char *s){
-    int pid;
-    int testsig;
-    testsig=15;
-    struct sigaction act = {test_handler, (uint)(1 << 29)};
-    struct sigaction old;
-
-    sigprocmask(0);
-    sigaction(testsig, &act, &old);
-    if((pid = fork()) == 0){
-        while(!wait_sig)
-            sleep(1);
-        exit(0);
-    }
-    kill(pid, testsig);
-    wait(&pid);
-    printf("Finished testing signals\n");
-}
-*/
-
-
-void test_thread2(){
-    printf("second Thread is now running\n");
-    kthread_exit(2);
-}
-
-
-void
-thread_test(char *s)
-{
-    fprintf(2, "main function\n");
-    int tid[2];
-    int status1;
-    int status2;
-    void* stack1 = malloc(STACK_SIZE);
-    void* stack2 = malloc(STACK_SIZE);
-    tid[0] = kthread_create(test_thread, stack1);
-    tid[1] = kthread_create(test_thread2, stack2);
-    printf("after create before join, new tid : %d \n", tid[0]);
-    printf("after create before join, new tid : %d \n", tid[1]);
-    kthread_join(tid[0],&status1);
-    kthread_join(tid[1],&status2);
-
-    free(stack1);
-    free(stack2);
-    printf("Finished testing threads, thread id: %d, status: %d\n", tid[0],status1);
-    printf("Finished testing threads, thread id: %d, status: %d\n", tid[1],status2);
-    exit(0);
-}
-
-/*void thread_test(char *s){
-    int tid;
-    int status;
-    void* stack = malloc(STACK_SIZE);
-    tid = kthread_create(test_thread, stack);
-    kthread_join(tid,&status);
-
-    tid = kthread_id();
-    free(stack);
-    printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
-}*/
-void thread_print(){
-    printf("Thread is now running\n");
-    kthread_exit(3);
-}
-
-void exec_test(char *s)
-{
-  int tid;
-  int status;    
-  char *argv[] = {"ls", 0};
-  void* stack = malloc(MAX_STACK_SIZE);
-  tid = kthread_create(thread_print, stack);    
-  exec("ls",argv);
-  kthread_join(tid,&status);
-
-  tid = kthread_id();
-  free(stack);
-  printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
-  
-}
-void bsem_test(char *s){
-    int pid;
-    int bid = bsem_alloc();
-    bsem_down(bid);
-    printf("1. Parent downing semaphore\n");
-    if((pid = fork()) == 0){
-        printf("2. Child downing semaphore\n");
-        bsem_down(bid);
-        printf("4. Child woke up\n");
-        exit(0);
-    }
-    sleep(5);
-    printf("3. Let the child wait on the semaphore...\n");
-    sleep(10);
-    bsem_up(bid);
-
-    bsem_free(bid);
-    wait(&pid);
-
-    printf("Finished bsem test, make sure that the order of the prints is alright. Meaning (1...2...3...4)\n");
-}
-
-
-void Csem_test(char *s){
-	struct counting_semaphore csem;
-    int retval;
-    int pid;
-    
-    
-    retval = csem_alloc(&csem,1);
-    if(retval==-1)
-    {
-		printf("failed csem alloc");
-		exit(-1);
-	}
-    csem_down(&csem);
-    printf("1. Parent downing semaphore\n");
-    if((pid = fork()) == 0){
-        printf("2. Child downing semaphore\n");
-        csem_down(&csem);
-        printf("4. Child woke up\n");
-        exit(0);
-    }
-    sleep(5);
-    printf("3. Let the child wait on the semaphore...\n");
-    sleep(10);
-    csem_up(&csem);
-
-    csem_free(&csem);
-    wait(&pid);
-
-    printf("Finished bsem test, make sure that the order of the prints is alright. Meaning (1...2...3...4)\n");
-}
-
-
-
-
-
-
-
 
 // what if you pass ridiculous pointers to system calls
 // that read user memory with copyin?
@@ -942,7 +781,7 @@ pipe1(char *s)
 }
 
 
-/*// test if child is killed (status = -1)
+// test if child is killed (status = -1)
 void
 killstatus(char *s)
 {
@@ -961,7 +800,7 @@ killstatus(char *s)
       exit(0);
     }
     sleep(1);
-    kill(pid1, SIGKILL);
+    kill(pid1);
     wait(&xst);
     if(xst != -1) {
        printf("%s: status should be -1\n", s);
@@ -969,10 +808,10 @@ killstatus(char *s)
     }
   }
   exit(0);
-}*/
+}
 
 // meant to be run w/ at most two CPUs
-/*void
+void
 preempt(char *s)
 {
   int pid1, pid2, pid3;
@@ -1018,14 +857,14 @@ preempt(char *s)
   }
   close(pfds[0]);
   printf("kill... ");
-  kill(pid1, SIGKILL);
-  kill(pid2, SIGKILL);
-  kill(pid3, SIGKILL);
+  kill(pid1);
+  kill(pid2);
+  kill(pid3);
   printf("wait... ");
   wait(0);
   wait(0);
   wait(0);
-}*/
+}
 
 // try to find any races between exit and wait
 void
@@ -1058,7 +897,7 @@ exitwait(char *s)
 // try to find races in the reparenting
 // code that handles a parent exiting
 // when it still has live children.
-/*void
+void
 reparent(char *s)
 {
   int master_pid = getpid();
@@ -1076,14 +915,14 @@ reparent(char *s)
     } else {
       int pid2 = fork();
       if(pid2 < 0){
-        kill(master_pid, SIGKILL);
+        kill(master_pid);
         exit(1);
       }
       exit(0);
     }
   }
   exit(0);
-}*/
+}
 
 // what if two children exit() at the same time?
 void
@@ -2392,7 +2231,7 @@ kernmem(char *s)
 
 // if we run the system out of memory, does it clean up the last
 // failed allocation?
-/*void
+void
 sbrkfail(char *s)
 {
   enum { BIG=100*1024*1024 };
@@ -2425,7 +2264,7 @@ sbrkfail(char *s)
   for(i = 0; i < sizeof(pids)/sizeof(pids[0]); i++){
     if(pids[i] == -1)
       continue;
-    kill(pids[i], SIGKILL);
+    kill(pids[i]);
     wait(0);
   }
   if(c == (char*)0xffffffffffffffffL){
@@ -2457,7 +2296,7 @@ sbrkfail(char *s)
   wait(&xstatus);
   if(xstatus != -1 && xstatus != 2)
     exit(1);
-}*/
+}
 
   
 // test reads/writes from/to allocated memory
@@ -2871,8 +2710,9 @@ countfree()
       printf("read() failed in countfree()\n");
       exit(1);
     }
-    if(cc == 0)
+    if(cc == 0){
       break;
+    }
     n += 1;
   }
 
@@ -2928,82 +2768,66 @@ main(int argc, char *argv[])
     void (*f)(char *);
     char *s;
   } tests[] = {
-	  //ASS 2 Compilation tests:
-	  //{signal_test,"signal_test"},
-    {exec_test,"exec_test"},
-	  {thread_test,"thread_test"},
-	  {bsem_test,"bsem_test"},
-	  {Csem_test,"Csem_test"},
-	  
-// ASS 1 tests
-//	{stracetest,"stracetest"},    //18 ticks, need to compare inputs
-//	{CombinedPerfPriorityFCFStest,"CombinedPerfPriorityFCFStest"},  //90 ticks, long calculation results: in DEFAULT, averages and stime equal between runs,   in FCFS and SRT(with starting value QUANTUM*100), stime rises with each run (each run waits for all the previous), in CFSD short long short long.
-//	{FCFStest,"FCFStest"},
-//	{priority_intput_validation,"priority_intput_validation"},
-	
-	
-		  
-// xv6 included tests:  // comented out long tests
- //   {manywrites, "manywrites"},  //800 ticks, too long
- //   {execout, "execout"}, //1600 ticks, too long
-    {copyin, "copyin"},//5 ticks
-    {copyout, "copyout"},// 0 ticks
-    {copyinstr1, "copyinstr1"},// 0 ticks
-    {copyinstr2, "copyinstr2"},// 1 ticks
-    {copyinstr3, "copyinstr3"},// 0 ticks
-    {rwsbrk, "rwsbrk" },// 3 ticks
-    {truncate1, "truncate1"},// 4 ticks
-    {truncate2, "truncate2"},// 4 ticks
- //   {truncate3, "truncate3"},// 0 ticks
-//    {reparent2, "reparent2"},// 600 ticks, causes fails in 
-    {pgbug, "pgbug" },// 0 ticks
-   // {sbrkbugs, "sbrkbugs" }, // 1 ticks
+    {manywrites, "manywrites"},
+    {execout, "execout"},
+    {copyin, "copyin"},
+    {copyout, "copyout"},
+    {copyinstr1, "copyinstr1"},
+    {copyinstr2, "copyinstr2"},
+    {copyinstr3, "copyinstr3"},
+    {rwsbrk, "rwsbrk" },
+    {truncate1, "truncate1"},
+    {truncate2, "truncate2"},
+    {truncate3, "truncate3"},
+    {reparent2, "reparent2"},
+    {pgbug, "pgbug" },
+    {sbrkbugs, "sbrkbugs" },
     // {badwrite, "badwrite" },
-    {badarg, "badarg" },// 200 ticks
-    //{reparent, "reparent" },
+    {badarg, "badarg" },
+    {reparent, "reparent" },
     {twochildren, "twochildren"},
     {forkfork, "forkfork"},
     {forkforkfork, "forkforkfork"},
-    {argptest, "argptest"},// 1 ticks
-//    {createdelete, "createdelete"},// 200 ticks
-//    {linkunlink, "linkunlink"},// 80 ticks
-    {linktest, "linktest"},// 9 ticks
-    {unlinkread, "unlinkread"},// 7 ticks
-//    {concreate, "concreate"},// 430 ticks
-    {subdir, "subdir"},// 24 ticks
-    {fourfiles, "fourfiles"},// 26 ticks
-//    {sharedfd, "sharedfd"},// 200 ticks
-    {dirtest, "dirtest"},// 4 ticks
-    {exectest, "exectest"},// 0 ticks
-    {bigargtest, "bigargtest"},//4 ticks
-    {bigwrite, "bigwrite"},// 170 ticks
-    {bsstest, "bsstest"},// 0 ticks
-//    {sbrkbasic, "sbrkbasic"},// 90 ticks
-//    {sbrkmuch, "sbrkmuch"},// 70 ticks
- //   {kernmem, "kernmem"},// 17 ticks
-//    {sbrkfail, "sbrkfail"},// 300 ticks
-    {sbrkarg, "sbrkarg"},// 4 ticks
-    {validatetest, "validatetest"},// 11 ticks
-  //  {stacktest, "stacktest"},// 0 ticks
-    {opentest, "opentest"},// 1 ticks
-//    {writetest, "writetest"},// 50 ticks
-//    {writebig, "writebig"},// 130 ticks
-//    {createtest, "createtest"},// 200 ticks
-    {openiputtest, "openiput"},// 5 ticks
-    {exitiputtest, "exitiput"},// 5 ticks
-    {iputtest, "iput"},// 4 ticks
-//    {mem, "mem"},// 200 ticks
-    {pipe1, "pipe1"},// 1 ticks
-//    {killstatus, "killstatus"},//150 ticks
-    //{preempt, "preempt"},    //doesn't work on FCFS
-    {exitwait, "exitwait"},// 18 ticks
-    {rmdot, "rmdot"},//6 ticks
-    {fourteen, "fourteen"},// 12 ticks
-    {bigfile, "bigfile"},// 12 ticks
-    {dirfile, "dirfile"},// 4 ticks
-//    {iref, "iref"},// 160 ticks
-    {forktest, "forktest"}, // 14 ticks
-//    {bigdir, "bigdir"}, // slow // 3800 ticks
+    {argptest, "argptest"},
+    {createdelete, "createdelete"},
+    {linkunlink, "linkunlink"},
+    {linktest, "linktest"},
+    {unlinkread, "unlinkread"},
+    {concreate, "concreate"},
+    {subdir, "subdir"},
+    {fourfiles, "fourfiles"},
+    {sharedfd, "sharedfd"},
+    {dirtest, "dirtest"},
+    {exectest, "exectest"},
+    {bigargtest, "bigargtest"},
+    {bigwrite, "bigwrite"},
+    {bsstest, "bsstest"},
+    {sbrkbasic, "sbrkbasic"},
+    {sbrkmuch, "sbrkmuch"},
+    {kernmem, "kernmem"},
+    {sbrkfail, "sbrkfail"},
+    {sbrkarg, "sbrkarg"},
+    {validatetest, "validatetest"},
+    {stacktest, "stacktest"},
+    {opentest, "opentest"},
+    {writetest, "writetest"},
+    {writebig, "writebig"},
+    {createtest, "createtest"},
+    {openiputtest, "openiput"},
+    {exitiputtest, "exitiput"},
+    {iputtest, "iput"},
+    {mem, "mem"},
+    {pipe1, "pipe1"},
+    {killstatus, "killstatus"},
+    {preempt, "preempt"},
+    {exitwait, "exitwait"},
+    {rmdot, "rmdot"},
+    {fourteen, "fourteen"},
+    {bigfile, "bigfile"},
+    {dirfile, "dirfile"},
+    {iref, "iref"},
+    {forktest, "forktest"},
+    {bigdir, "bigdir"}, // slow
     { 0, 0},
   };
 
