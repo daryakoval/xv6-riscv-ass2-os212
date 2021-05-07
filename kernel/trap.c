@@ -91,7 +91,7 @@ void
 usertrapret(void)
 {
   struct proc *p = myproc();
-  handle_pendding_sinals();
+  int i=handle_pendding_sinals();
   // we're about to switch the destination of traps from
   // kerneltrap() to usertrap(), so turn off interrupts until
   // we're back in user space, where usertrap() is correct.
@@ -118,6 +118,8 @@ usertrapret(void)
 
   // set S Exception Program Counter to the saved user pc.
   w_sepc(p->trapframe->epc);
+  if(i!=-1)
+    userhandler(i);
 
   // tell trampoline.S the user page table to switch to.
   uint64 satp = MAKE_SATP(p->pagetable);

@@ -862,27 +862,35 @@ userhandler(int i){ // process and curent i to check
 
   //step 4- reduce sp and buackup
   p->trapframe->sp -=sizeof(struct trapframe);
-  memmove((void*)& p->trapframe->sp,p->trapframe,sizeof(struct trapframe));
-  p->user_trap_frame_backup->sp=p->trapframe->sp;
-   printf("here&&&\n");
+  //memmove((void*)& p->trapframe->sp,p->trapframe,sizeof(struct trapframe));
+  
+   
    // step 5 
-  //copyout(p->pagetable,(uint64)p->trapframe,(char*)(&p->user_trap_frame_backup->sp),sizeof(struct trapframe));
+  copyout(p->pagetable,(uint64)p->trapframe,(char*)(&p->user_trap_frame_backup->sp),sizeof(struct trapframe));
       
 
-
+  
   //step 6
-  p->trapframe->epc=(uint64)p->signal_handlers[i];
+  p->trapframe->epc=(uint64)local_handler;
   
   // step 7
   int sigret_size= endFunc-startCalcSize; // cacl func size
-  p->trapframe->sp-=sigret_size;
-  memmove((void*) p->trapframe->sp,sigret,sigret_size);
   
 
+  p->trapframe->sp-=sigret_size;
+  printf("here&&&   sigret size is : %d\n",sigret_size);
+  memmove((void*) p->trapframe->sp,sigret,sigret_size);
+  
   //step 8
   copyout(p->pagetable,(uint64)startCalcSize,(char*)&p->trapframe->sp,sigret_size);
- 
-  //release(&p->lock);
+  
+  //step 9
+  p->trapframe->a0=i; // put signum in a0
+  p->trapframe->ra=p->trapframe->sp;
+
+  p->pendding_signals &= ~((uint)1<<i); // turn off the signal
+
+  release(&p->lock);
 
 
 
@@ -911,10 +919,11 @@ userhandler(int i){ // process and curent i to check
 
 }
 
-void
+int
 handle_pendding_sinals(){
  struct proc *p=myproc();
- 
+  p->user_trap_frame_backup=p->trapframe;
+
   while (p->frozen==1){// while the process is still frozen
      if(p->frozen==1 && ((p->pendding_signals & (uint)1<<SIGCONT)==0))// check if proc is frozen and cont bit is off
       yield();
@@ -929,32 +938,46 @@ handle_pendding_sinals(){
     if((p->pendding_signals & signal_bit_to_check)!=0 && p->signal_handling_flag==0){
       
 
-      if(i== SIGKILL)
-        sigKillHandler();
-      else if(i== SIGSTOP)
+      if(i== SIGKILL){
+         sigKillHandler();
+         return -1;
+      }
+       
+      else if(i== SIGSTOP){
         sigStopHandler();
+      }
+        
       //check if signal is blocked in the process 
       else if((p->signal_mask & signal_bit_to_check) ==0 ){
         //signal is not blocked 
 
         //check if signal handler is IGN if true discard the signal
-        if(currentHandler==(void*) SIG_IGN)
+        if(currentHandler==(void*) SIG_IGN){
           p->pendding_signals &= ~(signal_bit_to_check);
+          return -1;
+        }
+          
         else if(currentHandler== (void*)  SIGSTOP){
           sigStopHandler();
           p->pendding_signals &= ~(signal_bit_to_check);
+          return -1;
         }
           
         else if(currentHandler==(void*) SIGCONT){
     
           sigContHandler();
           p->pendding_signals &= ~(signal_bit_to_check);
+          return -1;
         }
-        else if( currentHandler==(void*) SIGKILL || currentHandler==(void*) SIG_DFL)
+        else if( currentHandler==(void*) SIGKILL || currentHandler==(void*) SIG_DFL){
           sigKillHandler();
+          return -1;
+        }
+          
         else{// its a user space handler 
           printf("herer!\n\n\n");
-          userhandler(i);
+          return i;
+          //userhandler(i);
         }
       }
 
@@ -963,5 +986,6 @@ handle_pendding_sinals(){
 
     }
   }
+  return -1;
   
 }
