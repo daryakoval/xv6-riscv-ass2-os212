@@ -55,8 +55,12 @@ procinit(void)
       p->kstack = KSTACK((int) (p - proc));
       //task 1.2
       //lock ?
-      for(int i=0;i<32;i++)
+      for(int i=0;i<32;i++){
         p->signal_handlers[i]=(void*)SIG_DFL;
+        p->signal_handlers_mask[i]=0;
+      }
+      p->frozen=0;
+      p->signal_handling_flag=0;
       //task 1.2
   }
 }
@@ -145,6 +149,11 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+  //task 1.2
+  for(int i=0; i<32;i++){
+    p->signal_handlers[i]=(void*)SIG_DFL;
+    p->signal_handlers_mask[i]=0;
+  }
 
   return p;
 }
@@ -249,6 +258,7 @@ userinit(void)
 
   p->state = RUNNABLE;
   p->frozen=0;
+  p->signal_mask=0;
   
 
   release(&p->lock);
@@ -282,6 +292,7 @@ fork(void)
   int i, pid;
   struct proc *np;
   struct proc *p = myproc();
+  
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -307,20 +318,23 @@ fork(void)
     if(p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
-
+  
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
-  
+
   //task 1.2
   np->signal_mask=p->signal_mask; 
- 
-  for(int i=0;i<32;i++)
-    np->signal_handlers[i]=p->signal_handlers[i]; 
+
+  for(int i=0;i<32;i++){
+    np->signal_handlers[i]=(void*) p->signal_handlers[i]; 
+    np->signal_handlers_mask[i]=p->signal_handlers_mask[i];
+  }
   //task 1.2
   //2.3
   //init frozem to 0
   np->frozen=0;
+  np->signal_handling_flag=0;
 
   //2.3
 
@@ -605,19 +619,10 @@ kill(int pid, int signum)
 
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
-    if(p->pid == pid){
-      p->pendding_signals |= (1 << signum);// or bitwise to turn on new signal in pedding signals
-      //task 2.3
-      if(signum==SIGKILL){// if sigkill killed on and wake it up if its asleep
-      p->killed = 1;
-        if(p->state == SLEEPING){
-        //Wake process from sleep().
-          p->state = RUNNABLE;
-      }
-      }
-      else if(signum==SIGSTOP){
-        p->frozen=1;
-      }
+    if(p->pid == pid){// maybe check if ignore?
+    //task 2.3
+      p->pendding_signals |= ((uint)1 << signum);// or bitwise to turn on new signal in pedding signals
+
       //task 2.3
       release(&p->lock);
       return 0;
@@ -700,26 +705,253 @@ sigprocmask(uint sigmask){
 
 //task 1.3
 
-//task 1.4
-int 
-sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
-  if(signum==SIGKILL || signum==SIGSTOP || signum<0 || signum>31  || act->sigmask<=0) 
-  // return error if its sigstop or sigkill or invalid  or sigmask is negative
-    return -1;
-  struct proc *p=myproc();
-  acquire(&p->lock);
-  if(oldact!=0)
-    oldact=p->signal_handlers[signum];
-  if(act!=0)
-    p->signal_handlers[signum]=(void*)act;
-  release(&p->lock);
-  return 0; // success
-}
-//task 1.4
+
 
 //task 1.5
   void
   sigret(void){
-    //todo after 2.4 is done
+    
+  struct proc* p = myproc();
+  acquire(&p->lock);
+  memmove(p->trapframe, p->user_trap_frame_backup, sizeof(struct trapframe)); // trapframe restore
+  p->trapframe->sp += sizeof(p->trapframe);// add size
+  p->signal_mask = p->signal_mask_backup; //restoring sigmask in case of change
+  p->signal_handling_flag=0;
+
+  
+  release(&p->lock);
   }
 //task 1.5
+
+//task 2.3
+void
+sigKillHandler(){
+  struct proc *p=myproc();
+  p->killed = 1;
+  if(p->state == SLEEPING){
+  //Wake process from sleep().
+    p->state = RUNNABLE;
+  return;
+  }
+}
+void
+sigStopHandler(){
+  struct proc *p=myproc();
+  p->frozen=1;
+  return;
+}
+void
+sigContHandler(){
+  struct proc *p=myproc();
+  p->frozen=0;
+  return;
+}
+
+
+
+//task 1.4
+int 
+sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+  struct proc *p=myproc();
+  acquire(&p->lock);
+  void* khandler=0;
+  uint kmask=0;
+
+ 
+
+
+  if(signum<0 || signum >31 || signum==SIGKILL || signum ==SIGSTOP){ // signum invalid 
+    release(&p->lock);
+    return -1;
+  }
+  
+  if(act != 0){ //act is not null
+    
+    if(copyin(p->pagetable,(char*)&kmask,(uint64)&act->sigmask,sizeof(uint))==-1 ||
+       copyin(p->pagetable,(char*)&khandler,(uint64)&act->sa_handler,sizeof(void*))==-1 ){ // copyin sigmask and handler
+          release(&p->lock);
+          return -1;
+    }
+
+    
+    printf("sig mask is %d\nkhandler is %d\n",kmask,khandler);
+    
+    if(kmask<0){    // invalid sigmask
+      release(&p->lock);
+      return -1;
+    }
+    // check if current handler is a kernel handler
+    void* cuurrent= p->signal_handlers[signum];
+    if(cuurrent==(void*)SIGKILL || cuurrent==(void*)SIGSTOP || cuurrent==(void*)SIG_DFL || cuurrent==(void*)SIGCONT || cuurrent==(void*)SIG_IGN){
+      if(oldact!=0){// check if oldact is not null
+        if(copyout(p->pagetable,(uint64)oldact,(char*)&cuurrent,sizeof(void*))==-1){// copyout kernrel handler
+          release(&p->lock);
+          return -1;
+        }
+        
+
+        
+        p->signal_handlers_mask[signum]=kmask;
+
+      p->signal_handlers[signum]=(void*)khandler;// was khandler
+      printf("pass %d\n",p->signal_handlers[signum]);
+
+
+        //printf("got here  %d\n",p->signal_handlers[signum]);
+
+      
+      }
+    }else{// current handler is a userspace handler
+      if(oldact!=0){ // old act isnt null
+        
+        void* currenthandlerKaddr=0;
+        uint cuurrentmaskKaddr=0;
+        //step 4.1
+        if(copyin(p->pagetable,(char*)&cuurrentmaskKaddr,(uint64)&p->signal_handlers_mask[signum],sizeof(uint))==-1 ||
+        copyin(p->pagetable,(char*)&currenthandlerKaddr,(uint64)&p->signal_handlers[signum],sizeof(void*))==-1 ){ // copyin sigmask and handler
+          release(&p->lock);
+          return -1;
+        }
+        //step 4.2
+        if(copyout(p->pagetable,(uint64)&oldact->sa_handler,(char*)&currenthandlerKaddr,sizeof(void*))==-1||
+        copyout(p->pagetable,(uint64)&oldact->sigmask,(char*)&cuurrentmaskKaddr,sizeof(uint))==-1){
+          release(&p->lock);
+          return -1;
+        }
+        //check if act is a kernel handler
+        if(khandler==(void*)SIG_DFL ||khandler==(void*)SIG_IGN || khandler==(void*)SIGCONT || khandler==(void*)SIGKILL || khandler==(void*)SIGSTOP ){
+          p->signal_handlers[signum]=(void*)khandler;
+          p->signal_handlers_mask[signum]=kmask;
+          release(&p->lock);
+          return 0;
+          
+        }
+        //step 4.3  maybe change this
+        if(copyout(p->pagetable,(uint64)&p->signal_handlers[signum],(char*)&khandler,sizeof(void*))==-1 ||
+        copyout(p->pagetable,(uint64)&p->signal_handlers_mask[signum],(char*)&kmask,sizeof(uint))==-1){
+          release(&p->lock);
+          return -1;
+        }
+      }
+      }
+  }
+
+  release(&p->lock);
+  return 0;
+}
+//task 1.4
+
+
+
+void
+userhandler(int i){ // process and curent i to check
+  
+  struct proc *p=myproc();
+  acquire(&p->lock);
+
+  void* local_handler=0;// maybe delete
+  copyin(p->pagetable,(char*)&local_handler,(uint64)p->signal_handlers[i],sizeof(void*));
+  printf("local is: %d\n",local_handler);
+
+  //step 2 -backup proc sigmask
+  p->signal_mask_backup=p->signal_mask;
+  p->signal_mask=p->signal_handlers_mask[i];
+  
+  //step 3 - turn on flag
+  p->signal_handling_flag=1;
+
+  //step 4- reduce sp and buackup
+  p->trapframe->sp -=sizeof(p->trapframe);
+  memmove((void*) p->trapframe->sp,p->trapframe,sizeof(p->trapframe));
+    printf("here!\n");
+  p->user_trap_frame_backup->sp=p->trapframe->sp;
+
+
+   // step 5 
+  copyout(p->pagetable,(uint64)&p->trapframe,(char*)&p->user_trap_frame_backup->sp,sizeof(p->trapframe));
+  p->trapframe->epc=(uint64)p->signal_handlers[i];
+
+  
+  //release(&p->lock);
+
+
+
+/*   struct sigaction *userSpaceSigaction,*helper;
+  copyin(p->pagetable,(char*)&userSpaceSigaction,(uint64)p->signal_handlers[i],64);
+
+  p->signal_mask_backup=p->signal_mask; //backup process sigmask before handling 
+  p->signal_mask=userSpaceSigaction->sigmask; //set  new sigmask
+  p->signal_handling_flag=1;
+  p->trapframe->sp -= sizeof(p->trapframe);// reduce size 
+  memmove((void*) p->trapframe->sp,p->trapframe,sizeof(p->trapframe));
+  p->user_trap_frame_backup->sp=p->trapframe->sp; // backup
+  copyout(p->pagetable,(uint64)p->trapframe,(char*)p->user_trap_frame_backup->sp,sizeof(p->trapframe));
+
+  helper=p->signal_handlers[i];
+  p->trapframe->epc=(uint64)helper->sa_handler;// update current proc trapframe epc to signal handler from userspace
+
+  int sigret_size= endFunc-startCalcSize; // cacl func size
+  p->trapframe->sp-=sigret_size;
+  memmove((void*) p->trapframe->sp,sigret,sigret_size);
+  
+  copyout(p->pagetable,(uint64)startCalcSize,(char*)p->trapframe->sp,sigret_size);
+
+  p->trapframe->a0=i; // put signum in a0
+  p->trapframe->ra=p->trapframe->sp; */
+
+}
+
+void
+handle_pendding_sinals(){
+ struct proc *p=myproc();
+ 
+  while (p->frozen==1){// while the process is still frozen
+     if(p->frozen==1 && ((p->pendding_signals & (uint)1<<SIGCONT)==0))// check if proc is frozen and cont bit is off
+      yield();
+    else if(p->frozen==1 && ((p->pendding_signals & (uint)1<<SIGCONT)!=0)){ // if frozen and cont bit is on handle it
+      sigContHandler();
+      p->pendding_signals &= ~((uint)1<<SIGCONT);// discard sigcont 
+    }
+  }  
+  for(int i=0;i<32;i++){
+    uint signal_bit_to_check= 1<<i;
+    void *currentHandler=p->signal_handlers[i];
+    if((p->pendding_signals & signal_bit_to_check)!=0 && p->signal_handling_flag==0){
+      
+
+      if(i== SIGKILL)
+        sigKillHandler();
+      else if(i== SIGSTOP)
+        sigStopHandler();
+      //check if signal is blocked in the process 
+      else if((p->signal_mask & signal_bit_to_check) ==0 ){
+        //signal is not blocked 
+
+        //check if signal handler is IGN if true discard the signal
+        if(currentHandler==(void*) SIG_IGN)
+          p->pendding_signals &= ~(signal_bit_to_check);
+        else if(currentHandler== (void*)  SIGSTOP){
+          sigStopHandler();
+          p->pendding_signals &= ~(signal_bit_to_check);
+        }
+          
+        else if(currentHandler==(void*) SIGCONT){
+    
+          sigContHandler();
+          p->pendding_signals &= ~(signal_bit_to_check);
+        }
+        else if( currentHandler==(void*) SIGKILL || currentHandler==(void*) SIG_DFL)
+          sigKillHandler();
+        else{// its a user space handler 
+          printf("herer!\n\n\n");
+          userhandler(i);
+        }
+      }
+
+
+
+
+    }
+  }
+  
+}

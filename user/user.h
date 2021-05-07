@@ -1,10 +1,10 @@
 struct stat;
 struct rtcdate;
 //task 1.4
-struct sigaction{
-    void (*sa_handler)(int);
-    uint sigmask;
-};
+struct sigaction; //{
+  //void (*sa_handler) (int);
+  //uint sigmask;
+//};
 //task 1.4
 
 // system calls
@@ -15,7 +15,7 @@ int pipe(int*);
 int write(int, const void*, int);
 int read(int, void*, int);
 int close(int);
-int kill(int);
+int kill(int,int);// task 2.2
 int exec(char*, char**);
 int open(const char*, int);
 int mknod(const char*, short, short);

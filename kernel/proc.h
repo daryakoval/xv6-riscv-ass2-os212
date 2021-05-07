@@ -109,11 +109,14 @@ struct proc {
   uint pendding_signals;
   uint signal_mask;
   void* signal_handlers[32];
+  uint signal_handlers_mask[32];
   struct trapframe* user_trap_frame_backup;
   //task 1.1
   //task 2.3
-  int frozen                   //if proc is frozen
+  int frozen;                   //if proc is frozen
   //task 2.3
+  uint signal_mask_backup;      //buckup sigmask
+  int signal_handling_flag;     
 
 };
 

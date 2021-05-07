@@ -6,6 +6,8 @@
 
 
 .globl swtch
+.globl startCalcSize
+.globl endFunc
 swtch:
         sd ra, 0(a0)
         sd sp, 8(a0)
@@ -38,5 +40,8 @@ swtch:
         ld s11, 104(a1)
         
         ret
+startCalcSize:
+       call sigret
+endFunc:
 
 	

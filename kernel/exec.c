@@ -120,20 +120,15 @@ exec(char *path, char **argv)
   //task 1.2
   
 
-  //void** sig_handlers = (void**) &p->signal_handlers;
+  
   for (int i = 0; i < 32; i++)
   {
-    if( &p->signal_handlers[i] != (void*) SIG_DFL &&  &p->signal_handlers[i] != (void *)SIG_IGN)
+    if( &p->signal_handlers[i] != (void*) SIG_DFL &&  &p->signal_handlers[i] != (void *)SIG_IGN){
        p->signal_handlers[i] = (void *)SIG_DFL;
+       p->signal_handlers_mask[i]=0;
+    }
   }
 
-
-/*   for(int i=0; i< 32; i++){
-    uint mask=1<<i;
-    if(mask!=SIG_DFL && mask!= SIG_IGN)
-      p->pendding_signals=( p->pendding_signals & ~mask) |(SIG_DFL<<i);
-  } */
-  
   //task 1.2
   proc_freepagetable(oldpagetable, oldsz);
 
