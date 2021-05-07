@@ -210,6 +210,7 @@ found:
   struct thread *t;
   
   for(t = p->threads; t < &p->threads[NTHREAD]; t++){
+    //t->trapframe = tr + sizeof(struct trapframe)*(t - p->threads);
     t->trapframe = tr;
     tr++;
   }

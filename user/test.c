@@ -185,6 +185,81 @@ void Csem_test(){
     printf("Finished bsem test, make sure that the order of the prints is alright. Meaning (1...2...3...4)\n");
 }
 
+void test_thread_2(void){
+    printf("Hello World! tid: %d\n", kthread_id());
+    kthread_exit(0);
+    // exit(0); // exit process
+}
+
+
+void
+thread_test_tamir(void)
+{
+    int tid;
+    int status;
+    int ids[7];
+    void* stacks[7];
+    
+    for(int i = 0; i < 7; i++){
+        void* stack = malloc(MAX_STACK_SIZE);
+        tid = kthread_create(test_thread_2, stack);
+        ids[i] = tid;
+        stacks[i] = stack;
+        printf("new thread in town: %d\n", tid);
+        sleep(3);
+    }
+    // kthread_exit(0);  // exit process
+
+    for(int i = 0; i < 7; i++){
+        tid = ids[i];
+        kthread_join(tid, &status);
+        printf("joined with: %d\n", tid);
+        free(stacks[i]);
+    }
+
+    for(int i = 0; i < 7; i++){
+        void* stack = malloc(MAX_STACK_SIZE);
+        tid = kthread_create(test_thread, stack);
+        ids[i] = tid;
+        stacks[i] = stack;
+        printf("new thread in town: %d\n", tid);
+        sleep(3);
+    }
+
+    for(int i = 0; i < 7; i++){
+        tid = ids[i];
+        kthread_join(tid, &status);
+        printf("joined with: %d\n", tid);
+        free(stacks[i]);
+    }
+    
+    tid = kthread_id();
+    printf("running thread is: %d\n", tid);
+    
+    kthread_exit(0); // exit process
+    // exit(0);
+}
+
+void thread_print(){
+    printf("Thread is now running\n");
+    kthread_exit(3);
+}
+
+void exec_test()
+{
+  int tid;
+  int status;    
+  void* stack = malloc(MAX_STACK_SIZE);
+  tid = kthread_create(thread_print, stack);    
+  exec("ls",0);
+  kthread_join(tid,&status);
+
+  tid = kthread_id();
+  free(stack);
+  printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
+  
+}
+
 int
 main(int argc, char **argv)
 {   
@@ -194,7 +269,9 @@ main(int argc, char **argv)
     //bsem_test_tamir();
     //Csem_test();
     //mytest();
-    thread_test();
-    printf("got here : bad");
+    //thread_test();
+    //thread_test_tamir();
+    exec_test();
+    //printf("got here : bad");
     exit(0);
 }
