@@ -861,17 +861,27 @@ userhandler(int i){ // process and curent i to check
   p->signal_handling_flag=1;
 
   //step 4- reduce sp and buackup
-  p->trapframe->sp -=sizeof(p->trapframe);
-  memmove((void*) p->trapframe->sp,p->trapframe,sizeof(p->trapframe));
-    printf("here!\n");
+  p->trapframe->sp -=sizeof(struct trapframe);
+  memmove((void*)& p->trapframe->sp,p->trapframe,sizeof(struct trapframe));
   p->user_trap_frame_backup->sp=p->trapframe->sp;
-
-
+   printf("here&&&\n");
    // step 5 
-  copyout(p->pagetable,(uint64)&p->trapframe,(char*)&p->user_trap_frame_backup->sp,sizeof(p->trapframe));
-  p->trapframe->epc=(uint64)p->signal_handlers[i];
+  //copyout(p->pagetable,(uint64)p->trapframe,(char*)(&p->user_trap_frame_backup->sp),sizeof(struct trapframe));
+      
 
+
+  //step 6
+  p->trapframe->epc=(uint64)p->signal_handlers[i];
   
+  // step 7
+  int sigret_size= endFunc-startCalcSize; // cacl func size
+  p->trapframe->sp-=sigret_size;
+  memmove((void*) p->trapframe->sp,sigret,sigret_size);
+  
+
+  //step 8
+  copyout(p->pagetable,(uint64)startCalcSize,(char*)&p->trapframe->sp,sigret_size);
+ 
   //release(&p->lock);
 
 
