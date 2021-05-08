@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 
+
 struct spinlock tickslock;
 uint ticks;
 
@@ -145,6 +146,8 @@ usertrapret(void)
   // set S Exception Program Counter to the saved user pc.
   w_sepc(t->trapframe->epc);
 
+
+
   // tell trampoline.S the user page table to switch to.
   uint64 satp = MAKE_SATP(p->pagetable);
   //printf("here4?\n");
@@ -180,6 +183,7 @@ kerneltrap()
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2 && mythread() != 0 && mythread()->state == RUNNING)
     yield();
+  
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.

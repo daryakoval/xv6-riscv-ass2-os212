@@ -125,7 +125,7 @@ exec(char *path, char **argv)
 
   // arguments to user main(argc, argv)
   // argc is returned via the system call return
-  // value, which goes in a0.
+  // value, which goes in a0.https://github.com/riscv/riscv-gnu-toolchain/issues/132
   //p->trapframe->a1 = sp;
   t->trapframe->a1 = sp;
 
@@ -139,6 +139,22 @@ exec(char *path, char **argv)
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
   p->sz = sz;
+  //p->trapframe->epc = elf.entry;  // initial program counter = main
+  //p->trapframe->sp = sp; // initial stack pointer
+
+
+
+  //task 1.2
+  
+
+  
+  for (int i = 0; i < 32; i++)
+  {
+    if( &p->signal_handlers[i] != (void*) SIG_DFL &&  &p->signal_handlers[i] != (void *)SIG_IGN){
+       p->signal_handlers[i] = (void *)SIG_DFL;
+       p->signal_handlers_mask[i]=0;
+    }
+  }
   //p->trapframe->epc = elf.entry;  // initial program counter = main
   //p->trapframe->sp = sp; // initial stack pointer
   

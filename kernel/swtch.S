@@ -4,7 +4,7 @@
 # 
 # Save current registers in old. Load from new.	
 
-
+#include "syscall.h"
 .globl swtch
 swtch:
         sd ra, 0(a0)
@@ -38,5 +38,12 @@ swtch:
         ld s11, 104(a1)
         
         ret
+.globl startCalcSize
+.globl endFunc
+startCalcSize:
+       //call sigret
+       li a7,SYS_sigret
+       ecall
+endFunc:
 
 	

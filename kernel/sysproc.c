@@ -48,9 +48,9 @@ sys_sigaction(void)
 //task 1.5
 uint64
 sys_sigret(void)
-{
+{ 
   sigret();
-  return 0; 
+  return 0; //todo change after 2.4 is done
 }
 //task1.5
 
@@ -120,7 +120,7 @@ sys_kill(void)
     return -1;
   if(argint(1, &signum) < 0)
     return -1;
-
+ 
   return kill(pid,signum);
 }
 

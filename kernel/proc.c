@@ -66,6 +66,7 @@ procinit(void)
       //was:
       //p->kstack = KSTACK((int) (p - proc));
       //task 1.2
+      //lock ?
       for(int i=0;i<32;i++){
         p->signal_handlers[i]=(void*)SIG_DFL;
         p->signal_handlers_mask[i]=0;
@@ -218,6 +219,11 @@ found:
     release(&p->lock);
     return 0;
   }
+  if((p->user_trap_frame_backup = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
 
   struct trapframe *tr = p->trapframe;
   struct thread *t;
@@ -243,11 +249,16 @@ found:
     p->signal_handlers_mask[i]=0;
   }
 
-  /*// Set up new context to start executing at forkret,
+  // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
-  p->context.sp = p->kstack + PGSIZE;*/
+  p->context.sp = p->kstack + PGSIZE;
+  //task 1.2
+  for(int i=0; i<32;i++){
+    p->signal_handlers[i]=(void*)SIG_DFL;
+    p->signal_handlers_mask[i]=0;
+  }
 
   t = allocthread(p);
   if(t == 0){
@@ -377,6 +388,9 @@ userinit(void)
   p->signal_mask=0;
 
   p->state = RUNNABLE;
+  p->frozen=0;
+  p->signal_mask=0;
+  
   t->state = RUNNABLE;
 
   //printf("release userinit\n");
@@ -443,15 +457,15 @@ fork(void)
     if(p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
-
+  
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
-  
+
   //task 1.2
   np->signal_mask=p->signal_mask; 
- 
-   for(int i=0;i<32;i++){
+
+  for(int i=0;i<32;i++){
     np->signal_handlers[i]=(void*) p->signal_handlers[i]; 
     np->signal_handlers_mask[i]=p->signal_handlers_mask[i];
   }
@@ -770,6 +784,7 @@ wakeup(void *chan)
 // Kill the process with the given pid.
 // The victim won't exit until it tries to return
 // to user space (see usertrap() in trap.c).
+//task 2.1
 int
 kill(int pid, int signum)
 {
@@ -863,9 +878,11 @@ procdump(void)
 uint
 sigprocmask(uint sigmask){
   struct proc *p=myproc();
+
   acquire(&p->lock);
   uint prev=p->signal_mask;
   p->signal_mask=sigmask;
+
   release(&p->lock);
   return prev;
 
@@ -922,6 +939,60 @@ sigContHandler(){
 }
 
 
+
+
+//task 1.5
+  void
+  sigret(void){
+
+  struct proc* p = myproc();
+
+  acquire(&p->lock);
+  //memmove(p->trapframe, p->user_trap_frame_backup, sizeof(struct trapframe)); // trapframe restore
+
+  *(p->trapframe)=*(p->user_trap_frame_backup);
+
+  //p->trapframe->sp += sizeof(p->trapframe);// add size
+  p->signal_mask = p->signal_mask_backup; //restoring sigmask in case of change
+  p->signal_handling_flag=0;
+
+  release(&p->lock);
+  }
+//task 1.5
+
+//task 2.3
+void
+sigKillHandler(){
+  struct proc *p=myproc();
+
+  p->killed = 1;
+  if(p->state == SLEEPING){
+  //Wake process from sleep().
+    p->state = RUNNABLE;
+  return;
+  }
+}
+void
+sigStopHandler(){
+  struct proc *p=myproc();
+
+  acquire(&p->lock);
+  p->frozen=1;
+  release(&p->lock);
+  return;
+}
+void
+sigContHandler(){
+  struct proc *p=myproc();
+
+  acquire(&p->lock);
+  p->frozen=0;
+  release(&p->lock);
+  return;
+}
+
+
+
 //task 1.4
 int 
 sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
@@ -976,7 +1047,8 @@ userhandler(int i){ // process and curent i to check
   //step 4- reduce sp and buackup
   p->trapframe->sp -=sizeof(struct trapframe);
 
-  // step 5 
+   
+   // step 5 
 
   copyout(p->pagetable,(uint64)p->user_trap_frame_backup->sp,(char*)p->trapframe,sizeof(struct trapframe));
   //step 6
@@ -984,6 +1056,7 @@ userhandler(int i){ // process and curent i to check
   
   // step 7
   int sigret_size= endFunc-startCalcSize; // cacl func size
+  
   
   p->trapframe->sp-=sigret_size;
   
