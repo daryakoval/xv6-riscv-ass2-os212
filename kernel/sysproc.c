@@ -47,7 +47,8 @@ sys_sigaction(void)
 //task 1.5
 uint64
 sys_sigret(void)
-{
+{ 
+  sigret();
   return 0; //todo change after 2.4 is done
 }
 //task1.5
