@@ -50,8 +50,6 @@ void signal_test(char *s){
     int pid=0;
     int testsig;
     testsig=15;
-        printf("pointer is: %p\n",test_handler);
-    printf("pointer is: %p\n",test_handler2);
     struct sigaction act = {test_handler2, (uint)(1 << 29)};
     struct sigaction old;
 
@@ -64,7 +62,6 @@ void signal_test(char *s){
             sleep(1);
         exit(0);
     } 
-    printf("pid is: %d\n",pid);
     kill(pid, testsig);
     
 

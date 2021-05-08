@@ -91,10 +91,11 @@ void
 usertrapret(void)
 {
   struct proc *p = myproc();
+  if(!p->signal_handling_flag){
   int i=handle_pendding_sinals();
     if(i!=-1){
     userhandler(i);
-    printf("in trap.c\n");
+  }
   }
   //printf("line 96 %d\n",sa_handler_ptr);
   // we're about to switch the destination of traps from

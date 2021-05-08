@@ -75,6 +75,7 @@ void signal_test(char *s){
         exit(0);
     }
     kill(pid, testsig);
+    printf("before wait\n");
     wait(&pid);
     printf("Finished testing signals\n");
 }
