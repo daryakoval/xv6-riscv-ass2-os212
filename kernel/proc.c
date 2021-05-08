@@ -286,8 +286,6 @@ freeproc(struct proc *p)
   }
   if(p->trapframe)
     kfree((void*)p->trapframe);
-  if(p->user_trap_frame_backup)
-    kfree((void*)p->user_trap_frame_backup);
   p->trapframe = 0;
   if(p->user_trap_frame_backup)
     kfree((void*)p->user_trap_frame_backup);
