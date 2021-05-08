@@ -92,7 +92,10 @@ usertrapret(void)
 {
   struct proc *p = myproc();
   int i=handle_pendding_sinals();
-
+    if(i!=-1){
+    userhandler(i);
+    printf("in trap.c\n");
+  }
   //printf("line 96 %d\n",sa_handler_ptr);
   // we're about to switch the destination of traps from
   // kerneltrap() to usertrap(), so turn off interrupts until
@@ -120,10 +123,7 @@ usertrapret(void)
 
   // set S Exception Program Counter to the saved user pc.
   w_sepc(p->trapframe->epc);
-        if(i!=-1){
-      userhandler(i);
-  printf("in trap.c\n");
-  }
+
 
 
   // tell trampoline.S the user page table to switch to.

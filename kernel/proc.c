@@ -721,7 +721,9 @@ sigprocmask(uint sigmask){
   printf("in sigret\n");
   struct proc* p = myproc();
   acquire(&p->lock);
-  memmove(p->trapframe, p->user_trap_frame_backup, sizeof(struct trapframe)); // trapframe restore
+  //memmove(p->trapframe, p->user_trap_frame_backup, sizeof(struct trapframe)); // trapframe restore
+
+  *(p->trapframe)=*(p->user_trap_frame_backup);
   printf("line 727\n");
   //p->trapframe->sp += sizeof(p->trapframe);// add size
   p->signal_mask = p->signal_mask_backup; //restoring sigmask in case of change
@@ -889,14 +891,14 @@ userhandler(int i){ // process and curent i to check
   struct proc *p=myproc();
   acquire(&p->lock);
 
-  uint64 local_handler;// maybe delete
+  //uint64 local_handler;// maybe delete
 
   //copyin(p->pagetable,(char*)&local_handler,(uint64)p->signal_handlers[i],sizeof(uint64));
 
   //copyout(p->pagetable,(uint64)&local_handler,(char*)p->signal_handlers[i],sizeof(uint64));
-  uint64 sa_handler_ptr = (uint64)p->signal_handlers[i]; 
-  local_handler=sa_handler_ptr;
-  printf("local is: %d\n",local_handler);
+  //uint64 sa_handler_ptr = (uint64)p->signal_handlers[i]; 
+  //local_handler=sa_handler_ptr;
+  //printf("local is: %d\n",local_handler);
   
   //step 2 -backup proc sigmask
   p->signal_mask_backup=p->signal_mask;
@@ -907,15 +909,16 @@ userhandler(int i){ // process and curent i to check
 
   //step 4- reduce sp and buackup
   p->trapframe->sp -=sizeof(struct trapframe);
-  uint64 newsp=p->trapframe->sp;
+  //uint64 newsp=p->trapframe->sp;
   //memmove((void*)& p->trapframe->sp,p->trapframe,sizeof(struct trapframe));
   
    
    // step 5 
   //copyout(p->pagetable,(uint64)newsp,(char*)(&p->trapframe),sizeof(struct trapframe));
-  copyout(p->pagetable,(uint64)&p->trapframe,(char*)newsp,sizeof(struct trapframe));
+  //copyout(p->pagetable,(uint64)&p->trapframe,(char*)newsp,sizeof(struct trapframe));
+  copyout(p->pagetable,(uint64)p->user_trap_frame_backup->sp,(char*)p->trapframe,sizeof(struct trapframe));
   //step 6
-  p->trapframe->epc=(uint64)local_handler;
+  p->trapframe->epc=(uint64)p->signal_handlers[i];
   
   // step 7
   int sigret_size= endFunc-startCalcSize; // cacl func size
@@ -926,7 +929,7 @@ userhandler(int i){ // process and curent i to check
   //memmove((void*) &p->trapframe->sp,sigret,sigret_size);
   printf("here&&&   sigret size is : %d\n",sigret_size); 
   //step 8
-  copyout(p->pagetable,(uint64)p->trapframe->sp,(char*)&startCalcSize,sigret_size);
+  copyout(p->pagetable,(uint64)p->trapframe->sp,(char*)startCalcSize,sigret_size);
 
   //step 9
   p->trapframe->a0=i; // put signum in a0
@@ -942,7 +945,8 @@ int
 handle_pendding_sinals(){
  struct proc *p=myproc();
   acquire(&p->lock);
-  memmove(p->user_trap_frame_backup,p->trapframe,sizeof(struct trapframe));
+  //memmove(p->user_trap_frame_backup,p->trapframe,sizeof(struct trapframe));
+  *(p->user_trap_frame_backup)=*(p->trapframe);
   //p->user_trap_frame_backup=p->trapframe;
 
   while (p->frozen==1){// while the process is still frozen

@@ -68,9 +68,10 @@ void signal_test(char *s){
     //fprintf(2, "blahhh %p\n", act.sa_handler);
     sigprocmask(0);
     sigaction(testsig, &act, &old);
+
     if((pid = fork()) == 0){
         while(!wait_sig)
-            sleep(1);
+            fprintf(2,"waiting\n");
         exit(0);
     }
     kill(pid, testsig);
