@@ -90,7 +90,7 @@ int             growproc(int);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
-int             kill(int);
+int             kill(int, int);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
 struct proc*    myproc();
@@ -107,6 +107,7 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+int            handle_pendding_sinals(void);
 //task 1.3+1.4+1.5
 uint            sigprocmask(uint sigmask);
 int             sigaction (int signum, const struct sigaction *act, struct sigaction *oldact);
@@ -129,6 +130,9 @@ void            bsem_init();
 
 // swtch.S
 void            swtch(struct context*, struct context*);
+void            startCalcSize(void);
+void            endFunc(void);
+void            userhandler(int);
 
 // spinlock.c
 void            acquire(struct spinlock*);

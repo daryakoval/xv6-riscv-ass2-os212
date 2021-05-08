@@ -103,6 +103,13 @@ usertrapret(void)
   struct thread *t = mythread();
   //struct proc *p = t->tproc;
   //printf("thread %d, proc %d\n", t->id, p->pid);
+
+  if(!p->signal_handling_flag){
+    int i=handle_pendding_sinals();
+    if(i!=-1){
+        userhandler(i);
+    }
+  }
   // we're about to switch the destination of traps from
   // kerneltrap() to usertrap(), so turn off interrupts until
   // we're back in user space, where usertrap() is correct.
