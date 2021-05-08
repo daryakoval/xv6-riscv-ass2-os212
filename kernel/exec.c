@@ -142,10 +142,7 @@ exec(char *path, char **argv)
   //p->trapframe->epc = elf.entry;  // initial program counter = main
   //p->trapframe->sp = sp; // initial stack pointer
 
-
-
   //task 1.2
-  
 
   
   for (int i = 0; i < 32; i++)
@@ -155,20 +152,9 @@ exec(char *path, char **argv)
        p->signal_handlers_mask[i]=0;
     }
   }
-  //p->trapframe->epc = elf.entry;  // initial program counter = main
-  //p->trapframe->sp = sp; // initial stack pointer
   
   t->trapframe->epc = elf.entry;  // initial program counter = main
   t->trapframe->sp = sp; // initial stack pointer
-
-  //task 1.2
-  for (int i = 0; i < 32; i++)
-  {
-    if( &p->signal_handlers[i] != (void*) SIG_DFL &&  &p->signal_handlers[i] != (void *)SIG_IGN){
-       p->signal_handlers[i] = (void *)SIG_DFL;
-       p->signal_handlers_mask[i]=0;
-    }
-  }//task 1.2
 
   proc_freepagetable(oldpagetable, oldsz);
 

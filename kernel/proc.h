@@ -97,6 +97,7 @@ struct thread {
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
   int xstate;
+  struct trapframe* user_trap_frame_backup;
 };
 
 // Per-process state
@@ -109,7 +110,6 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
-//https://github.com/riscv/riscv-gnu-toolchain/issues/132
   // proc_tree_lock must be held when using this:
   struct proc *parent;         // Parent process
 
@@ -127,7 +127,6 @@ struct proc {
   uint signal_mask;
   void* signal_handlers[32];
   uint signal_handlers_mask[32];
-  struct trapframe* user_trap_frame_backup;
   //task 1.1
    //task 2.3
   int frozen;                   //if proc is frozen

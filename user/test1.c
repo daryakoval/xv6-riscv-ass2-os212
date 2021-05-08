@@ -171,6 +171,36 @@ void test5(){
     }
     
 }
+int wait_sig = 0;
+
+void test_handler(int signum){
+    wait_sig = 1;
+    printf("Received sigtest\n");
+}
+
+void test_thread(){
+    printf("Thread is now running\n");
+    kthread_exit(0);
+}
+
+void signal_test(){
+    int pid;
+    int testsig;
+    testsig=15;
+    struct sigaction act = {test_handler, (uint)(1 << 29)};
+    struct sigaction old;
+
+    sigprocmask(0);
+    sigaction(testsig, &act, &old);
+    if((pid = fork()) == 0){
+        while(!wait_sig)
+            sleep(1);
+        exit(0);
+    }
+    kill(pid, testsig);
+    wait(&pid);
+    printf("Finished testing signals\n");
+}
 
 int
 main(int argc, char **argv)
@@ -184,9 +214,10 @@ main(int argc, char **argv)
     //test();
     //test2();
     //test3();
-    test4();
+    //test4();
     //test5();
     //test();
+    //signal_test();
     exit(0);
 }
 
