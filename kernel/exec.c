@@ -145,6 +145,15 @@ exec(char *path, char **argv)
   t->trapframe->epc = elf.entry;  // initial program counter = main
   t->trapframe->sp = sp; // initial stack pointer
 
+  //task 1.2
+  for (int i = 0; i < 32; i++)
+  {
+    if( &p->signal_handlers[i] != (void*) SIG_DFL &&  &p->signal_handlers[i] != (void *)SIG_IGN){
+       p->signal_handlers[i] = (void *)SIG_DFL;
+       p->signal_handlers_mask[i]=0;
+    }
+  }//task 1.2
+
   proc_freepagetable(oldpagetable, oldsz);
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)

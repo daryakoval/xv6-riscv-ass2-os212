@@ -49,7 +49,8 @@ sys_sigaction(void)
 uint64
 sys_sigret(void)
 {
-  return 0; //todo change after 2.4 is done
+  sigret();
+  return 0; 
 }
 //task1.5
 
@@ -113,10 +114,14 @@ uint64
 sys_kill(void)
 {
   int pid;
+  int signum;
 
   if(argint(0, &pid) < 0)
     return -1;
-  return kill(pid);
+  if(argint(1, &signum) < 0)
+    return -1;
+
+  return kill(pid,signum);
 }
 
 // return how many clock tick interrupts have occurred
