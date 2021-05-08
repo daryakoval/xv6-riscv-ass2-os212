@@ -1,3 +1,6 @@
+#define NTHREAD 8
+#define MAX_STACK_SIZE 4000
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -21,6 +24,7 @@ struct context {
 // Per-CPU state.
 struct cpu {
   struct proc *proc;          // The process running on this cpu, or null.
+  struct thread *thread;      // The thread running on this cpu, or null.
   struct context context;     // swtch() here to enter scheduler().
   int noff;                   // Depth of push_off() nesting.
   int intena;                 // Were interrupts enabled before push_off()?
@@ -81,6 +85,19 @@ struct trapframe {
 };
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+struct thread {
+  //struct spinlock lock;     
+  int id;                     //thread id
+  enum procstate state;        // Thread state
+  struct proc *tproc;           //Thread's process
+  // these are private to the process, so p->lock need not be held.
+  uint64 kstack;               // Virtual address of kernel stack
+  struct trapframe *trapframe; // data page for trampoline.S
+  struct context context;      // swtch() here to run process
+  void *chan;                  // If non-zero, sleeping on chan
+  int killed;                  // If non-zero, have been killed
+  int xstate;
+};
 
 // Per-process state
 struct proc {
@@ -92,7 +109,7 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
-
+//https://github.com/riscv/riscv-gnu-toolchain/issues/132
   // proc_tree_lock must be held when using this:
   struct proc *parent;         // Parent process
 
@@ -112,12 +129,12 @@ struct proc {
   uint signal_handlers_mask[32];
   struct trapframe* user_trap_frame_backup;
   //task 1.1
-  //task 2.3
+   //task 2.3
   int frozen;                   //if proc is frozen
   //task 2.3
   uint signal_mask_backup;      //buckup sigmask
-  int signal_handling_flag;     
-
+  int signal_handling_flag;
+  struct thread threads[NTHREAD];    //threads of the proccess
 };
 
 

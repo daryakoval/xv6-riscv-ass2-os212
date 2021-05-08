@@ -94,6 +94,7 @@ int             kill(int,int);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
 struct proc*    myproc();
+struct thread*  mythread();
 void            procinit(void);
 void            scheduler(void) __attribute__((noreturn));
 void            sched(void);
@@ -112,12 +113,26 @@ uint            sigprocmask(uint sigmask);
 int             sigaction (int signum, const struct sigaction *act, struct sigaction *oldact);
 void            sigret(void);
 //task 1.3+1.4+1.5
+int             kthread_create(uint64, uint64);       //task3
+int             kthread_id();       //task3
+void            kthread_exit(int);         //task3
+int             kthread_join(int, uint64);      //task3
+int wakeup_one(void*);
+
+
+//semaphore.c
+int             bsem_alloc();
+void            bsem_free(int);
+void            bsem_down(int);
+void            bsem_up(int);
+void            bsem_init();
+
+
 // swtch.S
 void            swtch(struct context*, struct context*);
 void            startCalcSize(void);
 void            endFunc(void);
 void            userhandler(int);
-
 
 // spinlock.c
 void            acquire(struct spinlock*);

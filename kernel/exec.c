@@ -18,8 +18,33 @@ exec(char *path, char **argv)
   struct elfhdr elf;
   struct inode *ip;
   struct proghdr ph;
+  struct thread *ot;
   pagetable_t pagetable = 0, oldpagetable;
-  struct proc *p = myproc();
+  struct thread *t = mythread();
+  struct proc *p = t->tproc;
+
+  acquire(&p->lock);
+  for(ot = p->threads; ot < &p->threads[NTHREAD]; ot++){
+    if(ot->state != UNUSED && t != ot) {
+      ot->killed = 1;
+      if(ot->state == SLEEPING){
+        ot->state = RUNNABLE;
+      }
+    }
+  }
+  //printf("release exec\n");
+  release(&p->lock);
+
+  while(1){
+    int live_threads = 0;
+    for(ot = p->threads; ot < &p->threads[NTHREAD]; ot++){
+      if(ot->state != UNUSED && t != ot && ot->state != ZOMBIE) {
+        live_threads = 1;
+      }
+    }
+    if(!live_threads) break;
+  }
+  
 
   begin_op();
 
@@ -61,7 +86,8 @@ exec(char *path, char **argv)
   end_op();
   ip = 0;
 
-  p = myproc();
+  t = mythread();
+  p = t->tproc;
   uint64 oldsz = p->sz;
 
   // Allocate two pages at the next page boundary.
@@ -99,8 +125,9 @@ exec(char *path, char **argv)
 
   // arguments to user main(argc, argv)
   // argc is returned via the system call return
-  // value, which goes in a0.
-  p->trapframe->a1 = sp;
+  // value, which goes in a0.https://github.com/riscv/riscv-gnu-toolchain/issues/132
+  //p->trapframe->a1 = sp;
+  t->trapframe->a1 = sp;
 
   // Save program name for debugging.
   for(last=s=path; *s; s++)
@@ -112,8 +139,8 @@ exec(char *path, char **argv)
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
   p->sz = sz;
-  p->trapframe->epc = elf.entry;  // initial program counter = main
-  p->trapframe->sp = sp; // initial stack pointer
+  //p->trapframe->epc = elf.entry;  // initial program counter = main
+  //p->trapframe->sp = sp; // initial stack pointer
 
 
 
@@ -128,8 +155,21 @@ exec(char *path, char **argv)
        p->signal_handlers_mask[i]=0;
     }
   }
+  //p->trapframe->epc = elf.entry;  // initial program counter = main
+  //p->trapframe->sp = sp; // initial stack pointer
+  
+  t->trapframe->epc = elf.entry;  // initial program counter = main
+  t->trapframe->sp = sp; // initial stack pointer
 
   //task 1.2
+  for (int i = 0; i < 32; i++)
+  {
+    if( &p->signal_handlers[i] != (void*) SIG_DFL &&  &p->signal_handlers[i] != (void *)SIG_IGN){
+       p->signal_handlers[i] = (void *)SIG_DFL;
+       p->signal_handlers_mask[i]=0;
+    }
+  }//task 1.2
+
   proc_freepagetable(oldpagetable, oldsz);
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)
