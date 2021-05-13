@@ -217,7 +217,7 @@ main(int argc, char **argv)
     //test4();
     //test5();
     //test();
-    //signal_test();
+    signal_test();
     exit(0);
 }
 

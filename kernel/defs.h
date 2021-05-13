@@ -117,10 +117,7 @@ int             kthread_create(uint64, uint64);       //task3
 int             kthread_id();       //task3
 void            kthread_exit(int);         //task3
 int             kthread_join(int, uint64);      //task3
-int wakeup_one(void*);
 
-
-//semaphore.c
 int             bsem_alloc();
 void            bsem_free(int);
 void            bsem_down(int);

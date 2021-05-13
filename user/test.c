@@ -1,9 +1,17 @@
+/*#include "kernel/param.h"
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+#include "kernel/fs.h"
+#include "kernel/fcntl.h"
 #include "kernel/syscall.h"
 #include "kernel/param.h"
+
+#include "kernel/memlayout.h"
+#include "kernel/riscv.h"
+#include "kernel/spinlock.h"
 #include "Csemaphore.h" 
+#include "kernel/proc.h" 
 
 
 void test_thread(){
@@ -17,7 +25,7 @@ void test_thread2(){
 }
 
 //MY TEST
-int
+void
 mytest()
 {
     fprintf(2, "main function\n");
@@ -34,7 +42,7 @@ mytest()
     free(stack);
     printf("Finished testing threads, main thread id: %d, %d\n", did,status);
 
-    exit(0);
+    //exit(0);
 }
 
 void
@@ -60,7 +68,7 @@ thread_test()
     kthread_exit(3);
 }
 
-void bsem_test_tamir(){
+void bsem_test_t(){
     int zero_bsem  = bsem_alloc();
     int one_bsem   = bsem_alloc();
 
@@ -84,6 +92,7 @@ void bsem_test_tamir(){
       }
     }
     printf("\n");
+    wait(&pid);
     bsem_free(one_bsem);
     bsem_free(zero_bsem);
     //exit(0);
@@ -193,7 +202,7 @@ void test_thread_2(void){
 
 
 void
-thread_test_tamir(void)
+thread_test_t(void)
 {
     int tid;
     int status;
@@ -236,7 +245,7 @@ thread_test_tamir(void)
     tid = kthread_id();
     printf("running thread is: %d\n", tid);
     
-    kthread_exit(0); // exit process
+    //kthread_exit(0); // exit process
     // exit(0);
 }
 
@@ -260,19 +269,45 @@ void exec_test()
   printf("Finished testing threads, main thread id: %d, %d\n", tid,status);
   
 }
+int wait_sig = 0;
+void test_handler(int signum){
+    wait_sig = 1;
+    printf("Received sigtest\n");
+}
+
+void signal_test(){
+    int pid;
+    int testsig;
+    testsig=15;
+    printf("addr of test handler %d\n", test_handler);
+    struct sigaction act = {test_handler, (uint)(1 << 29)};
+    struct sigaction old;
+
+    sigprocmask(0);
+    sigaction(testsig, &act, &old);
+    if((pid = fork()) == 0){
+        while(!wait_sig)
+            sleep(1);
+        exit(0);
+    }
+    kill(pid, testsig);
+    wait(&pid);
+    printf("Finished testing signals\n");
+}
 
 int
 main(int argc, char **argv)
 {   
     bsem_test();
-    bsem_test();
-    bsem_test_me();
-    bsem_test_tamir();
-    Csem_test();
+    //bsem_test();
+    //bsem_test_me();
+    //bsem_test_t();
+    //Csem_test();
     //mytest();
-    //thread_test_tamir();
+    //thread_test_t();
     //exec_test();
-    thread_test();
-    //printf("got here : bad");
+    //thread_test();
+    signal_test();
+    printf("got here : bad");
     exit(0);
-}
+}*/

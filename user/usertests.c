@@ -31,15 +31,16 @@ char buf[BUFSZ];
 
 int wait_sig = 0;
 
+void test_thread(){
+    printf("Thread is now running\n");
+    kthread_exit(0);
+}
+
 void test_handler(int signum){
     wait_sig = 1;
     printf("Received sigtest\n");
 }
 
-void test_thread(){
-    printf("Thread is now running\n");
-    kthread_exit(0);
-}
 
 void signal_test(char *s){
     int pid;
@@ -2882,8 +2883,8 @@ main(int argc, char *argv[])
 	  //ASS 2 Compilation tests:
 	  {signal_test,"signal_test"},
 	  {thread_test,"thread_test"},
-	  //{bsem_test,"bsem_test"},
-	  //{Csem_test,"Csem_test"},
+	  {bsem_test,"bsem_test"},
+	  {Csem_test,"Csem_test"},
 	  
 // ASS 1 tests
 //	{stracetest,"stracetest"},    //18 ticks, need to compare inputs

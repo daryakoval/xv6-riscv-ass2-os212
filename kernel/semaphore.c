@@ -1,4 +1,4 @@
-#include "defs.h"
+/*#include "defs.h"
 #include "param.h"
 
 struct bsem{    
@@ -9,24 +9,29 @@ struct bsem{
 
 struct bsem bsems[MAX_BSEM];
   
-struct spinlock bsem_lock; 
+struct spinlock bsem_lock;
 
-void bsem_init(){           //called from proc.c at init
-    int i = 0;
+static int first = 1;
+
+void bsem_init(){          
+    int i;
+
+    first = 0;
 
     initlock(&bsem_lock, "bsem");
 
     for(i = 0; i < MAX_BSEM; i++){
         struct bsem *b = &bsems[i];
         b->bid = i;
-        b->unlocked = 0;
-        b->state = 0;
     }
 }
 
 
 int bsem_alloc(){
     struct bsem *b;
+
+    if(first) bsem_init();
+
     acquire(&bsem_lock);
     for(b = bsems; b < &bsems[MAX_BSEM]; b++){
         if(!b->state){
@@ -66,4 +71,4 @@ void bsem_up(int bid){
     b->unlocked=1;
     wakeup(b);
     release(&bsem_lock);
-}
+}*/

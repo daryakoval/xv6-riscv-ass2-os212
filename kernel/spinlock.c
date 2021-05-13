@@ -49,7 +49,8 @@ void
 release(struct spinlock *lk)
 {
   if(!holding(lk)){
-    printf("%s\n",lk->name);
+    //printf("%s\n",lk->name);
+    //printf("id: %d",kthread_id());
     panic("release");
   }
 

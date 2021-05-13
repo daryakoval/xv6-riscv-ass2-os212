@@ -12,6 +12,17 @@ struct proc proc[NPROC];
 
 struct proc *initproc;
 
+//task4
+struct bsem{    
+    int state;      //state 0 == UNUSED, state 1 == USED
+    int bid;
+    int unlocked;        //unlocked 0 == LOCKED, unlocked 1 == UNLOCkED
+};
+
+struct bsem bsems[MAX_BSEM];
+  
+struct spinlock bsem_lock;
+
 int nextpid = 1;
 struct spinlock pid_lock;
 int nexttid = 1;
@@ -54,10 +65,11 @@ procinit(void)
   struct proc *p;
   struct thread *t;
 
-  bsem_init();
   initlock(&pid_lock, "nextpid");
   initlock(&tid_lock, "nexttid");
   initlock(&wait_lock, "wait_lock");
+  initlock(&bsem_lock, "bsem");
+
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       for(t = p->threads; t < &p->threads[NTHREAD]; t++){
@@ -143,7 +155,7 @@ static void
 freethread(struct thread *t)
 {
   if(t->user_trap_frame_backup)
-    kfree((void*)t->user_trap_frame_backup);
+    kfree((void*)t->user_trap_frame_backup); //task2
   t->user_trap_frame_backup=0; 
   t->id = 0;
   t->tproc = 0;
@@ -164,7 +176,6 @@ allocthread(struct proc *p)
       goto found;
     }
   }
-  //printf("release allocthread1\n");
   release(&p->lock);
   return 0;
 
@@ -216,7 +227,6 @@ found:
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
-    //printf("release allocproc2\n");
     release(&p->lock);
     return 0;
   }
@@ -234,7 +244,6 @@ found:
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
     freeproc(p);
-    //printf("release allocproc3\n");
     release(&p->lock);
     return 0;
   }
@@ -248,8 +257,6 @@ found:
   t = allocthread(p);
   if(t == 0){
     freeproc(p);
-    //printf("release allocproc4\n");
-    release(&p->lock);
     return 0;
   }
 
@@ -424,7 +431,6 @@ fork(void)
   np->sz = p->sz;
 
   // copy saved user registers.
-  *(np->trapframe) = *(p->trapframe);
   *(nt->trapframe) = *(t->trapframe);
 
   // Cause fork to return 0 in the child.
@@ -524,17 +530,12 @@ exit(int status)
 
   for(t = p->threads; t < &p->threads[NTHREAD]; t++){
     if(t->state != UNUSED && t->state != ZOMBIE){
-      t->killed = 1;
       t->state = ZOMBIE;
       t->xstate = status;
-      if(t->state == SLEEPING){
-        t->state = RUNNABLE;
-      }
     }
   }
   p->xstate = status;
   p->state = ZOMBIE;
-  p->killed = 1;
 
   release(&wait_lock);
 
@@ -742,11 +743,7 @@ wakeup(void *chan)
   struct thread *t;
 
   for(p = proc; p < &proc[NPROC]; p++) {
-    //if(p != myproc()){
       acquire(&p->lock);
-      // if(p->state == SLEEPING && p->chan == chan) {
-      //   p->state = RUNNABLE;
-      // }
       for(t = p->threads; t < &p->threads[NTHREAD]; t++){
         if(t != mythread() && t->state == SLEEPING && t->chan == chan) {
           t->state = RUNNABLE;
@@ -754,9 +751,7 @@ wakeup(void *chan)
 
         }
       }
-      //printf("release wakeup\n");
       release(&p->lock);
-    //}
   }
 }
 
@@ -1092,9 +1087,6 @@ handle_pendding_sinals(){
         }
       }
 
-
-
-
     }
   }
 
@@ -1115,8 +1107,6 @@ int kthread_create(uint64 start_func, uint64 stack){
   
   nt = allocthread(p);
   if(nt == 0){
-    //printf("release create1\n");
-    release(&p->lock);
     return 0;
   }
 
@@ -1125,7 +1115,6 @@ int kthread_create(uint64 start_func, uint64 stack){
   nt->trapframe->sp = stack+MAX_STACK_SIZE-16; // initial stack pointer
   nt->state = RUNNABLE;
 
-  //printf("release create2\n");
   release(&p->lock);
   return nt->id;
 
@@ -1143,7 +1132,7 @@ void kthread_exit(int status){
   struct thread *t;
   int running_threads = 0;
   acquire(&p->lock);
-  printf("starting thread exit: procees p %d, thread %d \n", p->pid, myt->id);
+  //printf("starting thread exit: procees p %d, thread %d \n", p->pid, myt->id);
 
   myt->state = ZOMBIE;
   myt->xstate = status;
@@ -1153,7 +1142,6 @@ void kthread_exit(int status){
     }
   }
   if(!running_threads){
-    //printf("release kexit\n");
     release(&p->lock);
     exit(status);
   }
@@ -1176,21 +1164,26 @@ int kthread_join(int thread_id, uint64 addr){
   int found;
   struct proc *p = mythread()->tproc;
 
+  if(!thread_id || thread_id == mythread()->id) return -1;
+
   acquire(&wait_lock);
   //printf("starting join\n");
 
   for(;;){
     // Scan through table looking for exited children.
     found = 0;
+    found_t = 0;
     for(nt = p->threads; nt < &p->threads[NTHREAD]; nt++){
       if(nt->id == thread_id){
         // make sure the child isn't still in exit() or swtch().
 
         acquire(&p->lock);
         found = 1;
+        //printf("found tid %d, thread_id %d\n", nt->id,thread_id );
         found_t = nt;
         if(nt->state == ZOMBIE){
           // Found one.
+          //printf("found and it is zombien\n");
           //acquire(&p->lock);
 
           if(addr != 0 && copyout(p->pagetable, addr, (char *)&nt->xstate,
@@ -1207,9 +1200,12 @@ int kthread_join(int thread_id, uint64 addr){
         release(&p->lock);
       }
     }
+    //printf("got here : found %d \n", found);
+    
 
     // No point waiting if we don't have any children.
     if(!found || mythread()->killed){
+      //printf("got here : no childrens found %d \n", found);
       release(&wait_lock);
       return -1;
     }
@@ -1220,3 +1216,54 @@ int kthread_join(int thread_id, uint64 addr){
   }
 }
 //task3
+
+
+int bsem_alloc(){
+    struct bsem *b;
+    acquire(&bsem_lock);
+    int i = 0;
+    for(b = bsems; b < &bsems[MAX_BSEM]; b++, i++){
+        if(!b->state){
+            b->bid = i;
+            b->state = 1; //used
+            b->unlocked = 1; //unlocked
+            release(&bsem_lock); 
+            //printf("alloc bid %d \n", b->bid);
+            return b->bid;
+        }
+    }
+    release(&bsem_lock);
+    //printf("return -1 \n");
+    return -1;
+}
+
+void bsem_free(int bid){
+    acquire(&bsem_lock);
+    struct bsem *b = &bsems[bid];
+    b->state = 0;        //unused
+    //printf("pid %d free semapore: bid %d\n", myproc()->pid, bid);
+    release(&bsem_lock);
+}
+
+void bsem_down(int bid){
+    acquire(&bsem_lock);
+    struct bsem *b;
+    b = &bsems[bid];
+    while(!b->unlocked){
+      //printf("pid %d going to sleep: bid %d, unlocked = %d\n", myproc()->pid, bid, b->unlocked);
+      sleep(b, &bsem_lock);
+    }
+    b->unlocked=0;
+    //printf("pid %d down semapore: bid %d\n", myproc()->pid, bid);
+    release(&bsem_lock);
+}
+
+void bsem_up(int bid){
+    acquire(&bsem_lock);
+    struct bsem *b;
+    b = &bsems[bid];
+    b->unlocked=1;
+    wakeup(b);
+    //printf("pid %d up semapore: bid %d, unlocked = %d\n", myproc()->pid, bid, b->unlocked);
+    release(&bsem_lock);
+}
